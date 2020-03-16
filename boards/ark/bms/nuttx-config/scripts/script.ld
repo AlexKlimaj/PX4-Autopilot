@@ -36,6 +36,8 @@
 /* The STM32F427 has 2048Kb of FLASH beginning at address 0x0800:0000 and
  * 256Kb of SRAM. SRAM is split up into three blocks:
  *
+ * TODO: FIX ME
+ *
  * 1) 112Kb of SRAM beginning at address 0x2000:0000
  * 2)  16Kb of SRAM beginning at address 0x2001:c000
  * 3)  64Kb of SRAM beginning at address 0x2002:0000
@@ -45,14 +47,14 @@
  * where the code expects to begin execution by jumping to the entry point in
  * the 0x0800:0000 address range.
  *
- * The first 0x4000 of flash is reserved for the bootloader.
+ * Bootloader reserves the first 32K bank.
+ * The next 2 32K sectors are reserved for parameters.
  */
 
 MEMORY
 {
-    flash (rx)   : ORIGIN = 0x08004000, LENGTH = 2032K
-    sram (rwx)   : ORIGIN = 0x20000000, LENGTH = 192K
-    ccsram (rwx) : ORIGIN = 0x10000000, LENGTH = 64K
+	flash (rx)   : ORIGIN = 0x08018000, LENGTH = 416K
+    sram (rwx)   : ORIGIN = 0x20000000, LENGTH = 256K
 }
 
 OUTPUT_ARCH(arm)
