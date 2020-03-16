@@ -33,10 +33,10 @@
  *
  ****************************************************************************/
 
-/* The STM32F427 has 2048Kb of FLASH beginning at address 0x0800:0000 and
+/* The STM32F412ZG has 1024kb of FLASH beginning at address 0x0800:0000 and
  * 256Kb of SRAM. SRAM is split up into three blocks:
  *
- * TODO: FIX ME
+ * TODO: FIX ME -- where is SRAM split into?
  *
  * 1) 112Kb of SRAM beginning at address 0x2000:0000
  * 2)  16Kb of SRAM beginning at address 0x2001:c000
@@ -53,7 +53,7 @@
 
 MEMORY
 {
-	flash (rx)   : ORIGIN = 0x08018000, LENGTH = 416K
+	flash (rx)   : ORIGIN = 0x08018000, LENGTH = 928K
     sram (rwx)   : ORIGIN = 0x20000000, LENGTH = 256K
 }
 

@@ -49,79 +49,57 @@
 
 #include <stm32.h>
 
-/************************************************************************************
- * Definitions
- ************************************************************************************/
-
-/* Clocking *************************************************************************/
-/* The PX4FMUV4 uses a 24MHz crystal connected to the HSE.
- *
- * This is the "standard" configuration as set up by arch/arm/src/stm32f40xx_rcc.c:
- *   System Clock source           : PLL (HSE)
- *   SYSCLK(Hz)                    : 168000000    Determined by PLL configuration
- *   HCLK(Hz)                      : 168000000    (STM32_RCC_CFGR_HPRE)
- *   AHB Prescaler                 : 1            (STM32_RCC_CFGR_HPRE)
- *   APB1 Prescaler                : 4            (STM32_RCC_CFGR_PPRE1)
- *   APB2 Prescaler                : 2            (STM32_RCC_CFGR_PPRE2)
- *   HSE Frequency(Hz)             : 24000000     (STM32_BOARD_XTAL)
- *   PLLM                          : 24           (STM32_PLLCFG_PLLM)
- *   PLLN                          : 336          (STM32_PLLCFG_PLLN)
- *   PLLP                          : 2            (STM32_PLLCFG_PLLP)
- *   PLLQ                          : 7            (STM32_PLLCFG_PPQ)
- *   Main regulator output voltage : Scale1 mode  Needed for high speed SYSCLK
- *   Flash Latency(WS)             : 5
- *   Prefetch Buffer               : OFF
- *   Instruction cache             : ON
- *   Data cache                    : ON
- *   Require 48MHz for USB OTG FS, : Enabled
- *   SDIO and RNG clock
- */
+/****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
 
 /* HSI - 16 MHz RC factory-trimmed
  * LSI - 32 KHz RC
- * HSE - On-board crystal frequency is 24MHz
+ * HSE - 8  MHz Crystal
  * LSE - not installed
  */
 
-#define STM32_BOARD_XTAL        24000000ul
+#define STM32_BOARD_USEHSE		1
+#define STM32_BOARD_XTAL		8000000
+#define STM32_HSE_FREQUENCY     STM32_BOARD_XTAL
+
+// #define STM32_BOARD_USEHSI		1
 
 #define STM32_HSI_FREQUENCY     16000000ul
 #define STM32_LSI_FREQUENCY     32000
-#define STM32_HSE_FREQUENCY     STM32_BOARD_XTAL
-//#define STM32_LSE_FREQUENCY     32768
 
-/* Main PLL Configuration.
- *
- * PLL source is HSE
- * PLL_VCO = (STM32_HSE_FREQUENCY / PLLM) * PLLN
- *         = (25,000,000 / 25) * 336
- *         = 336,000,000
- * SYSCLK  = PLL_VCO / PLLP
- *         = 336,000,000 / 2 = 168,000,000
- * USB OTG FS, SDIO and RNG Clock
- *         =  PLL_VCO / PLLQ
- *         = 48,000,000
- */
+/* Main PLL Configuration */
 
-#define STM32_PLLCFG_PLLM       RCC_PLLCFG_PLLM(24)
-#define STM32_PLLCFG_PLLN       RCC_PLLCFG_PLLN(336)
-#define STM32_PLLCFG_PLLP       RCC_PLLCFG_PLLP_2
-#define STM32_PLLCFG_PLLQ       RCC_PLLCFG_PLLQ(7)
+#define STM32_PLLCFG_PLLM       RCC_PLLCFG_PLLM(8)
+#define STM32_PLLCFG_PLLN       RCC_PLLCFG_PLLN(384)
+#define STM32_PLLCFG_PLLP       RCC_PLLCFG_PLLP_4
+#define STM32_PLLCFG_PLLQ       RCC_PLLCFG_PLLQ(8)
+#define STM32_PLLCFG_PLLR       RCC_PLLCFG_PLLR(2)
 
-#define STM32_SYSCLK_FREQUENCY  168000000ul
+#define STM32_RCC_PLLI2SCFGR_PLLI2SM RCC_PLLI2SCFGR_PLLI2SM(16)
+#define STM32_RCC_PLLI2SCFGR_PLLI2SN RCC_PLLI2SCFGR_PLLI2SN(192)
+#define STM32_RCC_PLLI2SCFGR_PLLI2SQ RCC_PLLI2SCFGR_PLLI2SQ(2)
+#define STM32_RCC_PLLI2SCFGR_PLLI2SR RCC_PLLI2SCFGR_PLLI2SR(2)
+#define STM32_RCC_PLLI2SCFGR_PLLI2SSRC RCC_PLLI2SCFGR_PLLI2SSRC(0) /* HSE or HSI depending on PLLSRC of PLLCFGR*/
 
-/* AHB clock (HCLK) is SYSCLK (168MHz) */
+#define STM32_RCC_DCKCFGR2_CK48MSEL RCC_DCKCFGR2_CK48MSEL_PLL
+#define STM32_RCC_DCKCFGR2_FMPI2C1SEL RCC_DCKCFGR2_FMPI2C1SEL_APB
+#define STM32_RCC_DCKCFGR2_SDIOSEL RCC_DCKCFGR2_SDIOSEL_48MHZ
 
-#define STM32_RCC_CFGR_HPRE     RCC_CFGR_HPRE_SYSCLK  /* HCLK  = SYSCLK / 1 */
+#define STM32_SYSCLK_FREQUENCY  96000000ul
+
+/* AHB clock (HCLK) is SYSCLK (96MHz) */
+
+#define STM32_RCC_CFGR_HPRE     RCC_CFGR_HPRE_SYSCLK      /* HCLK  = SYSCLK / 1 */
 #define STM32_HCLK_FREQUENCY    STM32_SYSCLK_FREQUENCY
-#define STM32_BOARD_HCLK        STM32_HCLK_FREQUENCY  /* same as above, to satisfy compiler */
+#define STM32_BOARD_HCLK        STM32_HCLK_FREQUENCY      /* Same as above, to satisfy compiler */
 
-/* APB1 clock (PCLK1) is HCLK/4 (42MHz) */
+/* APB1 clock (PCLK1) is HCLK/2 (48MHz) */
 
-#define STM32_RCC_CFGR_PPRE1    RCC_CFGR_PPRE1_HCLKd4     /* PCLK1 = HCLK / 4 */
-#define STM32_PCLK1_FREQUENCY   (STM32_HCLK_FREQUENCY/4)
+#define STM32_RCC_CFGR_PPRE1    RCC_CFGR_PPRE1_HCLKd2     /* PCLK1 = HCLK / 2 */
+#define STM32_PCLK1_FREQUENCY   (STM32_HCLK_FREQUENCY/2)
 
-/* Timers driven from APB1 will be twice PCLK1 */
+/* Timers driven from APB1 will be twice PCLK1 (see page 112 of reference manual) */
 
 #define STM32_APB1_TIM2_CLKIN   (2*STM32_PCLK1_FREQUENCY)
 #define STM32_APB1_TIM3_CLKIN   (2*STM32_PCLK1_FREQUENCY)
@@ -133,138 +111,143 @@
 #define STM32_APB1_TIM13_CLKIN  (2*STM32_PCLK1_FREQUENCY)
 #define STM32_APB1_TIM14_CLKIN  (2*STM32_PCLK1_FREQUENCY)
 
-/* APB2 clock (PCLK2) is HCLK/2 (84MHz) */
+/* APB2 clock (PCLK2) is HCLK (96MHz) */
 
-#define STM32_RCC_CFGR_PPRE2    RCC_CFGR_PPRE2_HCLKd2     /* PCLK2 = HCLK / 2 */
-#define STM32_PCLK2_FREQUENCY   (STM32_HCLK_FREQUENCY/2)
+#define STM32_RCC_CFGR_PPRE2    RCC_CFGR_PPRE2_HCLK       /* PCLK2 = HCLK */
+#define STM32_PCLK2_FREQUENCY   (STM32_HCLK_FREQUENCY)
 
-/* Timers driven from APB2 will be twice PCLK2 */
+/* Timers driven from APB2 will be PCLK2 since no prescale division */
 
-#define STM32_APB2_TIM1_CLKIN   (2*STM32_PCLK2_FREQUENCY)
-#define STM32_APB2_TIM8_CLKIN   (2*STM32_PCLK2_FREQUENCY)
-#define STM32_APB2_TIM9_CLKIN   (2*STM32_PCLK2_FREQUENCY)
-#define STM32_APB2_TIM10_CLKIN  (2*STM32_PCLK2_FREQUENCY)
-#define STM32_APB2_TIM11_CLKIN  (2*STM32_PCLK2_FREQUENCY)
+#define STM32_APB2_TIM1_CLKIN   (STM32_PCLK2_FREQUENCY)
+#define STM32_APB2_TIM8_CLKIN   (STM32_PCLK2_FREQUENCY)
+#define STM32_APB2_TIM9_CLKIN   (STM32_PCLK2_FREQUENCY)
+#define STM32_APB2_TIM10_CLKIN  (STM32_PCLK2_FREQUENCY)
+#define STM32_APB2_TIM11_CLKIN  (STM32_PCLK2_FREQUENCY)
 
 /* Timer Frequencies, if APBx is set to 1, frequency is same to APBx
  * otherwise frequency is 2xAPBx.
- * Note: TIM1,8-11 are on APB2, others on APB1
+ * Note: TIM1,8 are on APB2, others on APB1
  */
 
-#define BOARD_TIM1_FREQUENCY    STM32_APB2_TIM1_CLKIN
-#define BOARD_TIM2_FREQUENCY    STM32_APB1_TIM2_CLKIN
-#define BOARD_TIM3_FREQUENCY    STM32_APB1_TIM3_CLKIN
-#define BOARD_TIM4_FREQUENCY    STM32_APB1_TIM4_CLKIN
-#define BOARD_TIM5_FREQUENCY    STM32_APB1_TIM5_CLKIN
-#define BOARD_TIM6_FREQUENCY    STM32_APB1_TIM6_CLKIN
-#define BOARD_TIM7_FREQUENCY    STM32_APB1_TIM7_CLKIN
-#define BOARD_TIM8_FREQUENCY    STM32_APB2_TIM8_CLKIN
-#define BOARD_TIM9_FREQUENCY    STM32_APB2_TIM9_CLKIN
-#define BOARD_TIM10_FREQUENCY   STM32_APB2_TIM10_CLKIN
-#define BOARD_TIM11_FREQUENCY   STM32_APB2_TIM11_CLKIN
-#define BOARD_TIM12_FREQUENCY   STM32_APB1_TIM12_CLKIN
-#define BOARD_TIM13_FREQUENCY   STM32_APB1_TIM13_CLKIN
-#define BOARD_TIM14_FREQUENCY   STM32_APB1_TIM14_CLKIN
-
-/* SDIO dividers.  Note that slower clocking is required when DMA is disabled
- * in order to avoid RX overrun/TX underrun errors due to delayed responses
- * to service FIFOs in interrupt driven mode.  These values have not been
- * tuned!!!
- *
- * SDIOCLK=48MHz, SDIO_CK=SDIOCLK/(118+2)=400 KHz
- */
-
-#define SDIO_INIT_CLKDIV        (118 << SDIO_CLKCR_CLKDIV_SHIFT)
-
-/* DMA ON:  SDIOCLK=48MHz, SDIO_CK=SDIOCLK/(1+2)=16 MHz
- * DMA OFF: SDIOCLK=48MHz, SDIO_CK=SDIOCLK/(2+2)=12 MHz
- */
-
-#ifdef CONFIG_STM32_SDIO_DMA
-#  define SDIO_MMCXFR_CLKDIV    (1 << SDIO_CLKCR_CLKDIV_SHIFT)
-#else
-#  define SDIO_MMCXFR_CLKDIV    (2 << SDIO_CLKCR_CLKDIV_SHIFT)
-#endif
-
-/* DMA ON:  SDIOCLK=48MHz, SDIO_CK=SDIOCLK/(1+2)=16 MHz
- * DMA OFF: SDIOCLK=48MHz, SDIO_CK=SDIOCLK/(2+2)=12 MHz
- */
-
-#ifdef CONFIG_STM32_SDIO_DMA
-#  define SDIO_SDXFR_CLKDIV     (1 << SDIO_CLKCR_CLKDIV_SHIFT)
-#else
-#  define SDIO_SDXFR_CLKDIV     (2 << SDIO_CLKCR_CLKDIV_SHIFT)
-#endif
+#define BOARD_TIM2_FREQUENCY    (2 * STM32_PCLK1_FREQUENCY)
+#define BOARD_TIM3_FREQUENCY    (2 * STM32_PCLK1_FREQUENCY)
+#define BOARD_TIM4_FREQUENCY    (2 * STM32_PCLK1_FREQUENCY)
+#define BOARD_TIM5_FREQUENCY    (2 * STM32_PCLK1_FREQUENCY)
+#define BOARD_TIM6_FREQUENCY    (2 * STM32_PCLK1_FREQUENCY)
+#define BOARD_TIM7_FREQUENCY    (2 * STM32_PCLK1_FREQUENCY)
+#define BOARD_TIM8_FREQUENCY    (2 * STM32_PCLK2_FREQUENCY)
 
 /* Alternate function pin selections ************************************************/
 
-/*
- * UARTs.
+/* USART2:
+ *  RXD: PD6    CN9 pin 4
+ *  TXD: PD5    CN9 pin 6
  */
-#define GPIO_USART1_RX	GPIO_USART1_RX_2	/* ESP8266 */
-#define GPIO_USART1_TX	GPIO_USART1_TX_2
 
-#define GPIO_USART2_RX	GPIO_USART2_RX_2
-#define GPIO_USART2_TX	GPIO_USART2_TX_2
-#define GPIO_USART2_RTS	GPIO_USART2_RTS_2
-#define GPIO_USART2_CTS	GPIO_USART2_CTS_2
+#  define GPIO_USART2_RX GPIO_USART2_RX_2
+#  define GPIO_USART2_TX GPIO_USART2_TX_2
 
-#define GPIO_USART3_RX	GPIO_USART3_RX_3
-#define GPIO_USART3_TX	GPIO_USART3_TX_3
-#define GPIO_USART3_RTS	GPIO_USART3_RTS_2
-#define GPIO_USART3_CTS	GPIO_USART3_CTS_2
+/* USART6:
+ *  RXD: PG9    CN10 pin 16
+ *  TXD: PG14   CN10 pin 14
+ */
 
-#define GPIO_UART4_RX	GPIO_UART4_RX_1
-#define GPIO_UART4_TX	GPIO_UART4_TX_1
-
-#define GPIO_USART6_RX	GPIO_USART6_RX_1	/* RC_INPUT */
-#define GPIO_USART6_TX	GPIO_USART6_TX_1
-
-#define GPIO_UART7_RX	GPIO_UART7_RX_1
-#define GPIO_UART7_TX	GPIO_UART7_TX_1
-
-/* UART8 has no alternate pin config */
+#define GPIO_USART6_RX   GPIO_USART6_RX_2
+#define GPIO_USART6_TX   GPIO_USART6_TX_2
 
 
-/*
- * CAN
+// JAKE: TODO: do we need to use DMA?
+/* UART RX DMA configurations */
+
+// #define DMAMAP_USART1_RX DMAMAP_USART1_RX_2
+// #define DMAMAP_USART6_RX DMAMAP_USART6_RX_2
+
+/* I2C1:
+ *  SCL: PB8	CN7 pin2
+ *  SDA: PB9	CN7 pin4
+ */
+
+#define GPIO_I2C1_SCL    GPIO_I2C1_SCL_2
+#define GPIO_I2C1_SDA    GPIO_I2C1_SDA_2
+
+// JAKE: are these definitions really needed?
+#define GPIO_I2C1_SCL_GPIO \
+   (GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_SET|GPIO_PORTB|GPIO_PIN8)
+#define GPIO_I2C1_SDA_GPIO \
+   (GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_SET|GPIO_PORTB|GPIO_PIN9)
+
+/* SPI1:
+ *  MISO: PA6 	CN7 pin 12
+ *  MOSI: PA7	CN7 pin 14
+ *  SCK:  PA5	CN7 pin 10
+ */
+
+#define GPIO_SPI1_MISO   GPIO_SPI1_MISO_1
+#define GPIO_SPI1_MOSI   GPIO_SPI1_MOSI_1
+#define GPIO_SPI1_SCK    GPIO_SPI1_SCK_1
+
+/* CAN1:
+ *  RX: PD0		CN9 pin 25
+ *  TX: PD1		CN9 pin 27
+ */
+
+#define GPIO_CAN1_RX GPIO_CAN1_RX_3
+#define GPIO_CAN1_TX GPIO_CAN1_TX_3
+
+// JAKE: TODO: USB STUFF
+
+/* LEDs
  *
- * CAN1 is routed to the onboard transceiver.
+ * The NUCLEO-F412ZG board has 3 user leds.
+ *  LD1: PB0	GREEN
+ *  LD2: PB7	BLUE
+ *  LD3: PB14	RED
  */
-#define GPIO_CAN1_RX	GPIO_CAN1_RX_3
-#define GPIO_CAN1_TX	GPIO_CAN1_TX_3
 
-/*
- * I2C
+#define BOARD_NLEDS       3
+
+#define GPIO_LD1 \
+(GPIO_PORTB | GPIO_PIN0 | GPIO_OUTPUT_CLEAR | GPIO_OUTPUT | GPIO_PULLUP | \
+GPIO_SPEED_50MHz)
+
+#define GPIO_LD2 \
+(GPIO_PORTB | GPIO_PIN7 | GPIO_OUTPUT_CLEAR | GPIO_OUTPUT | GPIO_PULLUP | \
+GPIO_SPEED_50MHz)
+
+#define GPIO_LD3 \
+(GPIO_PORTB | GPIO_PIN14 | GPIO_OUTPUT_CLEAR | GPIO_OUTPUT | GPIO_PULLUP | \
+GPIO_SPEED_50MHz)
+
+/* These LEDs are not used by the board port unless CONFIG_ARCH_LEDS is
+ * defined.  In that case, the usage by the board port is defined in
+ * include/board.h and src/sam_leds.c. The LEDs are used to encode OS-related
+ * events as follows when the red LED (PE24) is available:
  *
- * The optional _GPIO configurations allow the I2C driver to manually
- * reset the bus to clear stuck slaves.  They match the pin configuration,
- * but are normally-high GPIOs.
- */
-#define GPIO_I2C1_SCL		GPIO_I2C1_SCL_2
-#define GPIO_I2C1_SDA		GPIO_I2C1_SDA_2
-#define GPIO_I2C1_SCL_GPIO	(GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_SET|GPIO_PORTB|GPIO_PIN8)
-#define GPIO_I2C1_SDA_GPIO	(GPIO_OUTPUT|GPIO_OPENDRAIN|GPIO_SPEED_50MHz|GPIO_OUTPUT_SET|GPIO_PORTB|GPIO_PIN9)
-
-
-/*
- * SPI
+ *   SYMBOL                Meaning
+ *   -------------------  -----------------------
+ *   LED_STARTED          NuttX has been started
+ *   LED_HEAPALLOCATE     Heap has been allocated
+ *   LED_IRQSENABLED      Interrupts enabled
+ *   LED_STACKCREATED     Idle stack created
+ *   LED_INIRQ            In an interrupt
+ *   LED_SIGNAL           In a signal handler
+ *   LED_ASSERTION        An assertion failed
+ *   LED_PANIC            The system has crashed
+ *   LED_IDLE             MCU is is sleep mode
  *
- * There are sensors on SPI1, and SPI2 is connected to the FRAM.
+ * Thus if LD2, NuttX has successfully booted and is, apparently, running
+ * normally.  If LD2 is flashing at approximately 2Hz, then a fatal error
+ * has been detected and the system has halted.
  */
-#define GPIO_SPI1_MISO  (GPIO_SPI1_MISO_1|GPIO_SPEED_50MHz)
-#define GPIO_SPI1_MOSI  (GPIO_SPI1_MOSI_1|GPIO_SPEED_50MHz)
-#define GPIO_SPI1_SCK   (GPIO_SPI1_SCK_1|GPIO_SPEED_50MHz)
 
-#define GPIO_SPI2_MISO  (GPIO_SPI2_MISO_1|GPIO_SPEED_50MHz)
-#define GPIO_SPI2_MOSI  (GPIO_SPI2_MOSI_1|GPIO_SPEED_50MHz)
-#define GPIO_SPI2_SCK   (GPIO_SPI2_SCK_1|GPIO_SPEED_50MHz)
-
-#if defined(CONFIG_STM32_SPI4)
-#  define GPIO_SPI4_MISO  (GPIO_SPI4_MISO_1|GPIO_SPEED_50MHz)
-#  define GPIO_SPI4_MOSI  (GPIO_SPI4_MOSI_1|GPIO_SPEED_50MHz)
-#  define GPIO_SPI4_SCK   (GPIO_SPI4_SCK_1|GPIO_SPEED_50MHz)
-#endif
+#define LED_STARTED      1
+#define LED_HEAPALLOCATE 0
+#define LED_IRQSENABLED  0
+#define LED_STACKCREATED 3
+#define LED_INIRQ        0
+#define LED_SIGNAL       0
+#define LED_ASSERTION    1
+#define LED_PANIC        1
 
 /* Board provides GPIO or other Hardware for signaling to timing analyzer */
 

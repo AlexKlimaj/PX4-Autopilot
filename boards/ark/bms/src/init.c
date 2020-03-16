@@ -216,9 +216,10 @@ stm32_boardinitialize(void)
  ****************************************************************************/
 
 static struct spi_dev_s *spi1;
-static struct spi_dev_s *spi2;
-static struct sdio_dev_s *sdio;
 
+#ifdef CONFIG_MMCSD
+static struct sdio_dev_s *sdio;
+#endif
 
 __EXPORT int board_app_initialize(uintptr_t arg)
 {
@@ -252,12 +253,11 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	led_off(LED_GREEN);
 	led_off(LED_BLUE);
 
+#ifdef CONFIG_BOARD_CRASHDUMP
 	if (board_hardfault_init(2, true) != 0) {
 		led_on(LED_RED);
 	}
-
-	// Power down the heater.
-	stm32_gpiowrite(GPIO_HEATER_OUTPUT, 0);
+#endif
 
 	// Configure SPI-based devices.
 	spi1 = stm32_spibus_initialize(1);
@@ -277,28 +277,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	SPI_SELECT(spi1, PX4_SPIDEV_MPU, false);
 	up_udelay(20);
 
-	// Get the SPI port for the FRAM.
-	spi2 = stm32_spibus_initialize(2);
-
-	if (!spi2) {
-		syslog(LOG_ERR, "[boot] FAILED to initialize SPI port 2\n");
-		led_on(LED_RED);
-		return -ENODEV;
-	}
-
-	/**
-	 * Default SPI2 to 12MHz and de-assert the known chip selects.
-	 * MS5611 has max SPI clock speed of 20MHz.
-	 */
-
-	// XXX start with 10.4 MHz and go up to 20 once validated.
-	SPI_SETFREQUENCY(spi2, 20 * 1000 * 1000);
-	SPI_SETBITS(spi2, 8);
-	SPI_SETMODE(spi2, SPIDEV_MODE3);
-	SPI_SELECT(spi2, SPIDEV_FLASH(0), false);
-	SPI_SELECT(spi2, PX4_SPIDEV_BARO, false);
-
-
+	int ret = 0;
 
 #ifdef CONFIG_MMCSD
 
@@ -313,7 +292,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	}
 
 	// Now bind the SDIO interface to the MMC/SD driver.
-	int ret = mmcsd_slotinitialize(CONFIG_NSH_MMCSDMINOR, sdio);
+	ret = mmcsd_slotinitialize(CONFIG_NSH_MMCSDMINOR, sdio);
 
 	if (ret != OK) {
 		led_on(LED_RED);
