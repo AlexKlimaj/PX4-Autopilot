@@ -28,62 +28,25 @@ px4_add_board(
 	ROMFSROOT cannode
 	UAVCAN_INTERFACES 1
 	SERIAL_PORTS
-		GPS1:/dev/ttyS3
 		TEL1:/dev/ttyS1
 		TEL2:/dev/ttyS2
 	DRIVERS
 		adc
-		#barometer # all available barometer drivers
 		barometer/ms5611
 		bootloaders
-		#differential_pressure # all available differential pressure drivers
-		#distance_sensor # all available distance sensor drivers
-		#dshot
 		gps
-		#imu # all available imu drivers
-		#imu/adis16448
-		#imu/adis16477
-		#imu/adis16497
-		#imu/invensense/icm20602
-		#imu/invensense/icm20608-g
 		imu/mpu6000
 		imu/mpu9250
-		#lights/rgbled
-		#lights/rgbled_ncp5623c
-		#magnetometer # all available magnetometer drivers
-		#optical_flow # all available optical flow drivers
-		#px4fmu
-		#safety_button
-		#tone_alarm
 		uavcannode
 	MODULES
-		#ekf2
-		#load_mon
 		sensors
-		#temperature_compensation
 	SYSTEMCMDS
-		#bl_update
-		#dmesg
-		#dumpfile
-		#esc_calib
-		#hardfault_log
 		i2cdetect
-		#led_control
-		#mixer
-		#motor_ramp
-		#motor_test
 		mtd
-		#nshterm
 		param
 		perf
-		#pwm
 		reboot
-		#reflect
-		#sd_bench
-		#shutdown
 		top
-		#topic_listener
-		#tune_control
 		ver
 		work_queue
 )
