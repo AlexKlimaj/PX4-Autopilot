@@ -157,7 +157,6 @@ stm32_boardinitialize(void)
 	// Configure LEDs.
 	board_autoled_initialize();
 
-
 	// Configure ADC pins.
 	stm32_configgpio(GPIO_ADC1_IN2);	/* BATT_VOLTAGE_SENS */
 	stm32_configgpio(GPIO_ADC1_IN3);	/* BATT_CURRENT_SENS */
@@ -176,15 +175,6 @@ stm32_boardinitialize(void)
 	stm32_configgpio(GPIO_SBUS_INV);
 	stm32_configgpio(GPIO_SPEKTRUM_PWR_EN);
 
-	stm32_configgpio(GPIO_8266_GPIO2);
-	stm32_configgpio(GPIO_8266_GPIO0);
-
-	// Safety - led on in led driver.
-	stm32_configgpio(GPIO_BTN_SAFETY);
-	stm32_configgpio(GPIO_PPM_IN);
-
-		stm32_configgpio(GPIO_8266_PD);
-		stm32_configgpio(GPIO_8266_RST);
 
 	// Configure SPI all interfaces GPIO & enable power.
 	stm32_spiinitialize();
