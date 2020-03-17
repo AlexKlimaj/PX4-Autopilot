@@ -169,20 +169,12 @@
 #define ADC_5V_RAIL_SENSE            4
 #define ADC_RC_RSSI_CHANNEL          11
 
-/* Define Battery 1 Voltage Divider and A per V. */
-#define BOARD_BATTERY1_V_DIV         (13.653333333f)
-#define BOARD_BATTERY1_A_PER_V       (36.367515152f)
-
 
 /* Power supply control and monitoring GPIOs. */
 #define GPIO_VDD_BRICK_VALID         (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTB|GPIO_PIN5)
 #define GPIO_VDD_USB_VALID           (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTC|GPIO_PIN0)
 
-/* Tone alarm output. */
-#define TONE_ALARM_TIMER             2    /* timer 2 */
-#define TONE_ALARM_CHANNEL           1    /* channel 1 */
-#define GPIO_TONE_ALARM_IDLE         (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTA|GPIO_PIN15)
-#define GPIO_TONE_ALARM              (GPIO_ALT|GPIO_AF1|GPIO_SPEED_2MHz|GPIO_PUSHPULL|GPIO_PORTA|GPIO_PIN15)
+
 
 /**
  * PWM:
