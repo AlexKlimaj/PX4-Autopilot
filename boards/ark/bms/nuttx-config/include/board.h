@@ -140,6 +140,9 @@
 /* Alternate function pin selections ************************************************/
 
 /* USART2:
+ *
+ * Used for NSH console.
+ *
  *  RXD: PD6    CN9 pin 4
  *  TXD: PD5    CN9 pin 6
  */

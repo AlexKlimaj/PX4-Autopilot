@@ -28,14 +28,13 @@ px4_add_board(
 	ROMFSROOT cannode
 	UAVCAN_INTERFACES 1
 	SERIAL_PORTS
-		TEL1:/dev/ttyS1
-		TEL2:/dev/ttyS2
+		GPS1:/dev/ttyS1
+		TEL1:/dev/ttyS2
 	DRIVERS
 		adc
 		barometer/ms5611
 		bootloaders
 		gps
-		imu/mpu6000
 		imu/mpu9250
 		uavcannode
 	MODULES
