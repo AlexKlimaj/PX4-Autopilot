@@ -20,8 +20,8 @@ add_definitions(
 
 px4_add_board(
 	PLATFORM nuttx
-	VENDOR st
-	MODEL nucleo-f412zg
+	VENDOR ark
+	MODEL bms
 	LABEL cannode
 	TOOLCHAIN arm-none-eabi
 	ARCHITECTURE cortex-m4
