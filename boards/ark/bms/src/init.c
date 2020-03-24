@@ -172,9 +172,6 @@ stm32_boardinitialize(void)
 	stm32_configgpio(GPIO_VDD_BRICK_VALID);
 	stm32_configgpio(GPIO_VDD_USB_VALID);
 
-	stm32_configgpio(GPIO_SBUS_INV);
-	stm32_configgpio(GPIO_SPEKTRUM_PWR_EN);
-
 
 	// Configure SPI all interfaces GPIO & enable power.
 	stm32_spiinitialize();
