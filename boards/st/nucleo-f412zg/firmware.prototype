@@ -1,10 +1,10 @@
 {
     "board_id": 69,
-    "magic": "ARKBMS",
-    "description": "Firmware for the ARK UAVCAN BMS board",
+    "magic": "NUCLEO-F412ZG",
+    "description": "Demonstration firmware for the NUCLEO-F412ZG",
     "image": "",
     "build_time": 0,
-    "summary": "ARKBMS",
+    "summary": "NUCLEO-F412ZG",
     "version": "0.1",
     "image_size": 0,
     "image_maxsize": 524288,
