@@ -147,17 +147,8 @@
  *  TXD: PD5    CN9 pin 6
  */
 
-#  define GPIO_USART2_RX GPIO_USART2_RX_2
-#  define GPIO_USART2_TX GPIO_USART2_TX_2
-
-/* USART6:
- *  RXD: PG9    CN10 pin 16
- *  TXD: PG14   CN10 pin 14
- */
-
-#define GPIO_USART6_RX   GPIO_USART6_RX_2
-#define GPIO_USART6_TX   GPIO_USART6_TX_2
-
+#  define GPIO_USART2_RX GPIO_USART2_RX_1
+#  define GPIO_USART2_TX GPIO_USART2_TX_1
 
 // JAKE: TODO: do we need to use DMA?
 /* UART RX DMA configurations */
@@ -201,7 +192,7 @@
  *  LD3: PB14	RED
  */
 
-#define BOARD_NLEDS       3
+#define BOARD_NLEDS       2
 
 #define GPIO_LD1 \
 (GPIO_PORTB | GPIO_PIN0 | GPIO_OUTPUT_CLEAR | GPIO_OUTPUT | GPIO_PULLUP | \

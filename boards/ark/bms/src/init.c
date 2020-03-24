@@ -151,6 +151,8 @@ __EXPORT void board_on_reset(int status)
 __EXPORT void
 stm32_boardinitialize(void)
 {
+	stm32_configgpio(GPIO_POWER_BUTTON);
+
 	// Reset all PWM to Low outputs.
 	board_on_reset(-1);
 
@@ -158,10 +160,10 @@ stm32_boardinitialize(void)
 	board_autoled_initialize();
 
 	// Configure ADC pins.
-	stm32_configgpio(GPIO_ADC1_IN2);	/* BATT_VOLTAGE_SENS */
-	stm32_configgpio(GPIO_ADC1_IN3);	/* BATT_CURRENT_SENS */
-	stm32_configgpio(GPIO_ADC1_IN4);	/* VDD_5V_SENS */
-	stm32_configgpio(GPIO_ADC1_IN11);	/* RSSI analog in */
+	// stm32_configgpio(GPIO_ADC1_IN2);	/* BATT_VOLTAGE_SENS */
+	// stm32_configgpio(GPIO_ADC1_IN3);	 BATT_CURRENT_SENS
+	// stm32_configgpio(GPIO_ADC1_IN4);	/* VDD_5V_SENS */
+	// stm32_configgpio(GPIO_ADC1_IN11);	/* RSSI analog in */
 
 	// Configure CAN interface
 	stm32_configgpio(GPIO_CAN1_RX);
