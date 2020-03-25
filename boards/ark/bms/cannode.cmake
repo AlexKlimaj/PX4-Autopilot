@@ -29,20 +29,17 @@ px4_add_board(
 	UAVCAN_INTERFACES 1
 	SERIAL_PORTS
 	DRIVERS
-		barometer/ms5611
 		bootloaders
 		gps
-		imu/mpu9250
 		uavcannode
 	MODULES
-		sensors
+		# sensors
 	SYSTEMCMDS
-		i2cdetect
-		mtd
 		param
 		perf
 		reboot
 		top
+		topic_listener
 		ver
 		work_queue
 )

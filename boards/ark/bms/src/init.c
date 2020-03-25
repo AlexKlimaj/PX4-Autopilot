@@ -93,51 +93,6 @@ extern void led_on(int led);
 extern void led_off(int led);
 __END_DECLS
 
-/****************************************************************************
- * Protected Functions
- ****************************************************************************/
-/****************************************************************************
- * Public Functions
- ****************************************************************************/
-/************************************************************************************
- * Name: board_peripheral_reset
- *
- * Description:
- *
- ************************************************************************************/
-__EXPORT void board_peripheral_reset(int ms)
-{
-	UNUSED(ms);
-}
-
-/************************************************************************************
- * Name: board_on_reset
- *
- * Description:
- * Optionally provided function called on entry to board_system_reset
- * It should perform any house keeping prior to the rest.
- *
- * status - 1 if resetting to boot loader
- *          0 if just resetting
- *
- ************************************************************************************/
-__EXPORT void board_on_reset(int status)
-{
-	// Configure the GPIO pins to outputs and keep them low.
-	for (int i = 0; i < DIRECT_PWM_OUTPUT_CHANNELS; ++i) {
-		px4_arch_configgpio(io_timer_channel_get_gpio_output(i));
-	}
-
-	/*
-	 * On resets invoked from system (not boot) insure we establish a low
-	 * output state (discharge the pins) on PWM pins before they become inputs.
-	 */
-
-	if (status >= 0) {
-		up_mdelay(400);
-	}
-}
-
 /************************************************************************************
  * Name: stm32_boardinitialize
  *
@@ -153,11 +108,8 @@ stm32_boardinitialize(void)
 {
 	stm32_configgpio(GPIO_POWER_BUTTON);
 
-	// Reset all PWM to Low outputs.
-	board_on_reset(-1);
-
 	// Configure LEDs.
-	board_autoled_initialize();
+	// board_autoled_initialize();
 
 	// Configure ADC pins.
 	// stm32_configgpio(GPIO_ADC1_IN2);	/* BATT_VOLTAGE_SENS */
@@ -168,12 +120,6 @@ stm32_boardinitialize(void)
 	// Configure CAN interface
 	stm32_configgpio(GPIO_CAN1_RX);
 	stm32_configgpio(GPIO_CAN1_TX);
-
-	// Configure power supply control/sense pins.
-	stm32_configgpio(GPIO_PERIPH_3V3_EN);
-	stm32_configgpio(GPIO_VDD_BRICK_VALID);
-	stm32_configgpio(GPIO_VDD_USB_VALID);
-
 
 	// Configure SPI all interfaces GPIO & enable power.
 	stm32_spiinitialize();
@@ -204,7 +150,7 @@ stm32_boardinitialize(void)
  *
  ****************************************************************************/
 
-static struct spi_dev_s *spi1;
+// static struct spi_dev_s *spi1;
 
 #ifdef CONFIG_MMCSD
 static struct sdio_dev_s *sdio;
@@ -214,85 +160,85 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 {
 	px4_platform_init();
 
-	// Configure the DMA allocator.
-	if (board_dma_alloc_init() < 0) {
-		syslog(LOG_ERR, "DMA alloc FAILED\n");
-	}
+// 	// Configure the DMA allocator.
+// 	if (board_dma_alloc_init() < 0) {
+// 		syslog(LOG_ERR, "DMA alloc FAILED\n");
+// 	}
 
-	// Set up the serial DMA polling.
-	static struct hrt_call serial_dma_call;
-	struct timespec ts;
+// 	// Set up the serial DMA polling.
+// 	static struct hrt_call serial_dma_call;
+// 	struct timespec ts;
 
-	/**
-	 * Poll at 1ms intervals for received bytes that have not triggered
-	 * a DMA event.
-	 */
-	ts.tv_sec = 0;
-	ts.tv_nsec = 1000000;
+// 	/**
+// 	 * Poll at 1ms intervals for received bytes that have not triggered
+// 	 * a DMA event.
+// 	 */
+// 	ts.tv_sec = 0;
+// 	ts.tv_nsec = 1000000;
 
-	hrt_call_every(&serial_dma_call,
-		       ts_to_abstime(&ts),
-		       ts_to_abstime(&ts),
-		       (hrt_callout)stm32_serial_dma_poll,
-		       NULL);
+// 	hrt_call_every(&serial_dma_call,
+// 		       ts_to_abstime(&ts),
+// 		       ts_to_abstime(&ts),
+// 		       (hrt_callout)stm32_serial_dma_poll,
+// 		       NULL);
 
-	// Initial LED state.
-	drv_led_start();
-	led_off(LED_RED);
-	led_off(LED_GREEN);
-	led_off(LED_BLUE);
+// 	// Initial LED state.
+// 	drv_led_start();
+// 	led_off(LED_RED);
+// 	led_off(LED_GREEN);
+// 	led_off(LED_BLUE);
 
-#ifdef CONFIG_BOARD_CRASHDUMP
-	if (board_hardfault_init(2, true) != 0) {
-		led_on(LED_RED);
-	}
-#endif
+// #ifdef CONFIG_BOARD_CRASHDUMP
+// 	if (board_hardfault_init(2, true) != 0) {
+// 		led_on(LED_RED);
+// 	}
+// #endif
 
-	// Configure SPI-based devices.
-	spi1 = stm32_spibus_initialize(1);
+// 	// Configure SPI-based devices.
+// 	spi1 = stm32_spibus_initialize(1);
 
-	if (!spi1) {
-		syslog(LOG_ERR, "[boot] FAILED to initialize SPI port 1\n");
-		led_on(LED_RED);
-		return -ENODEV;
-	}
+// 	if (!spi1) {
+// 		syslog(LOG_ERR, "[boot] FAILED to initialize SPI port 1\n");
+// 		led_on(LED_RED);
+// 		return -ENODEV;
+// 	}
 
 
-	// Default SPI1 to 1MHz and de-assert the known chip selects.
-	SPI_SETFREQUENCY(spi1, 10000000);
-	SPI_SETBITS(spi1, 8);
-	SPI_SETMODE(spi1, SPIDEV_MODE3);
-	SPI_SELECT(spi1, PX4_SPIDEV_HMC, false);
-	SPI_SELECT(spi1, PX4_SPIDEV_MPU, false);
-	up_udelay(20);
+// 	// Default SPI1 to 1MHz and de-assert the known chip selects.
+// 	SPI_SETFREQUENCY(spi1, 10000000);
+// 	SPI_SETBITS(spi1, 8);
+// 	SPI_SETMODE(spi1, SPIDEV_MODE3);
+// 	SPI_SELECT(spi1, PX4_SPIDEV_HMC, false);
+// 	SPI_SELECT(spi1, PX4_SPIDEV_MPU, false);
+// 	up_udelay(20);
 
 	int ret = 0;
 
-#ifdef CONFIG_MMCSD
+// #ifdef CONFIG_MMCSD
 
-	// First, get an instance of the SDIO interface.
-	sdio = sdio_initialize(CONFIG_NSH_MMCSDSLOTNO);
+// 	// First, get an instance of the SDIO interface.
+// 	sdio = sdio_initialize(CONFIG_NSH_MMCSDSLOTNO);
 
-	if (!sdio) {
-		led_on(LED_RED);
-		syslog(LOG_ERR, "[boot] Failed to initialize SDIO slot %d\n",
-		       CONFIG_NSH_MMCSDSLOTNO);
-		return -ENODEV;
-	}
+// 	if (!sdio) {
+// 		led_on(LED_RED);
+// 		syslog(LOG_ERR, "[boot] Failed to initialize SDIO slot %d\n",
+// 		       CONFIG_NSH_MMCSDSLOTNO);
+// 		return -ENODEV;
+// 	}
 
-	// Now bind the SDIO interface to the MMC/SD driver.
-	ret = mmcsd_slotinitialize(CONFIG_NSH_MMCSDMINOR, sdio);
+// 	// Now bind the SDIO interface to the MMC/SD driver.
+// 	ret = mmcsd_slotinitialize(CONFIG_NSH_MMCSDMINOR, sdio);
 
-	if (ret != OK) {
-		led_on(LED_RED);
-		syslog(LOG_ERR, "[boot] Failed to bind SDIO to the MMC/SD driver: %d\n", ret);
-		return ret;
-	}
+// 	if (ret != OK) {
+// 		led_on(LED_RED);
+// 		syslog(LOG_ERR, "[boot] Failed to bind SDIO to the MMC/SD driver: %d\n", ret);
+// 		return ret;
+// 	}
 
-	// Then let's guess and say that there is a card in the slot. There is no card detect GPIO.
-	sdio_mediachange(sdio, true);
+// 	// Then let's guess and say that there is a card in the slot. There is no card detect GPIO.
+// 	sdio_mediachange(sdio, true);
 
-#endif
+// #endif
 
 #if defined(FLASH_BASED_PARAMS)
 	static sector_descriptor_t params_sector_map[] = {

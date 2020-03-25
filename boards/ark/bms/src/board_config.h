@@ -123,75 +123,13 @@
  */
 
 #define PX4_SPI_BUS_SENSORS          1
-#define PX4_SPI_BUS_RAMTRON          2
-#define PX4_SPI_BUS_BARO             PX4_SPI_BUS_RAMTRON
-
-#ifdef CONFIG_STM32_SPI4
-#  define PX4_SPI_BUS_EXTERNAL       4
-/* The mask passes to init the SPI bus pins
- * N.B This works ONLY with buss numbers that are powers of 2
- * Adding SPI3 would break this!
- */
-#  define   SPI_BUS_INIT_MASK_EXT     PX4_SPI_BUS_EXTERNAL
-#endif /* CONFIG_STM32_SPI4 */
+#define PX4_SPI_BUS_BARO             PX4_SPI_BUS_SENSORS
 
 #include <drivers/drv_sensor.h>
 
-/* Use these in place of the uint32_t enumeration to select a specific SPI device on SPI1 */
-#define PX4_SPIDEV_MPU               PX4_MK_SPI_SEL(0, DRV_IMU_DEVTYPE_MPU6000)
-#define PX4_SPIDEV_HMC               PX4_MK_SPI_SEL(0, DRV_MAG_DEVTYPE_HMC5883)
-#define PX4_SPIDEV_LIS               PX4_MK_SPI_SEL(0, DRV_MAG_DEVTYPE_LIS3MDL)
-#define PX4_SPIDEV_ICM_20608         PX4_MK_SPI_SEL(0, DRV_IMU_DEVTYPE_ICM20608)
-#define PX4_SPIDEV_ICM_20602         PX4_MK_SPI_SEL(0, DRV_IMU_DEVTYPE_ICM20602)
-#define PX4_SPIDEV_MPU2              PX4_MK_SPI_SEL(0, DRV_IMU_DEVTYPE_MPU9250)
-
-/**
- * Onboard MS5611 and FRAM are both on bus SPI2.
- * spi_dev_e:SPIDEV_FLASH has the value 2 and is used in the NuttX ramtron driver.
- * PX4_MK_SPI_SEL  differentiate by adding in PX4_SPI_DEVICE_ID.
- */
 #define PX4_SPIDEV_BARO             PX4_MK_SPI_SEL(0, DRV_BARO_DEVTYPE_MS5611)
+#define PX4_SPIDEV_RM               PX4_MK_SPI_SEL(0, DRV_MAG_DEVTYPE_RM3100)
 
-#ifdef CONFIG_STM32_SPI4
-#  define PX4_SPIDEV_EXTERNAL       PX4_MK_SPI_SEL(0, 0)
-#endif /* CONFIG_STM32_SPI4 */
-
-/* I2C busses. */
-#define PX4_I2C_BUS_EXPANSION        1
-#define PX4_I2C_BUS_LED              PX4_I2C_BUS_EXPANSION
-
-/**
- * ADC channels:
- * These are the channel numbers of the ADCs of the microcontroller that can be used by the Px4 Firmware in the adc driver.
- */
-#define ADC_CHANNELS (1 << 2) | (1 << 3) | (1 << 4) | (1 << 10) | (1 << 11) | (1 << 12) | (1 << 13) | (1 << 14)
-
-/* ADC defines to be used in sensors.cpp to read from a particular channel. */
-#define ADC_BATTERY_VOLTAGE_CHANNEL  2
-#define ADC_BATTERY_CURRENT_CHANNEL  3
-#define ADC_5V_RAIL_SENSE            4
-#define ADC_RC_RSSI_CHANNEL          11
-
-
-/* Power supply control and monitoring GPIOs. */
-#define GPIO_VDD_BRICK_VALID         (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTB|GPIO_PIN5)
-#define GPIO_VDD_USB_VALID           (GPIO_INPUT|GPIO_PULLUP|GPIO_PORTC|GPIO_PIN0)
-
-
-
-/**
- * PWM:
- *
- * Six PWM outputs are configured.
- */
-#define DIRECT_PWM_OUTPUT_CHANNELS   6
-#define DIRECT_INPUT_TIMER_CHANNELS  6
-
-/**
- * USB OTG FS:
- * PA9  OTG_FS_VBUS VBUS sensing.
- */
-#define GPIO_OTGFS_VBUS              (GPIO_INPUT|GPIO_FLOAT|GPIO_SPEED_100MHz|GPIO_OPENDRAIN|GPIO_PORTA|GPIO_PIN9)
 
 /* High-resolution timer */
 #define HRT_TIMER                    3  /* use timer 3 for the HRT */
@@ -199,12 +137,6 @@
 
 
 #define GPIO_PERIPH_3V3_EN           (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTC|GPIO_PIN5)
-
-
-/* This board provides a DMA pool and APIs. */
-#define BOARD_DMA_ALLOC_POOL_SIZE (5120 + 512 + 1024)	// 5120 fat + 512 + 1024 spi
-
-#define BOARD_HAS_ON_RESET 1
 
 
 __BEGIN_DECLS
