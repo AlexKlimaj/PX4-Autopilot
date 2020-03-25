@@ -49,6 +49,10 @@
 
 #include <stm32.h>
 
+// DEBUG
+
+#define UAVCAN_STM32_LOG(fmt, ...) printf("uavcan_stm32: " fmt "\n", ##__VA_ARGS__)
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
@@ -60,7 +64,7 @@
  */
 
 #define STM32_BOARD_USEHSE		1
-#define STM32_BOARD_XTAL		8000000
+#define STM32_BOARD_XTAL		8000000ul
 #define STM32_HSE_FREQUENCY     STM32_BOARD_XTAL
 
 // #define STM32_BOARD_USEHSI		1
@@ -194,23 +198,23 @@
 
 #define BOARD_NLEDS       5
 
-#define GPIO_LD0 \
+#define GPIO_LED_1 \
 (GPIO_PORTA | GPIO_PIN1 | GPIO_OUTPUT_CLEAR | GPIO_OUTPUT | GPIO_PULLUP | \
 GPIO_SPEED_50MHz)
 
-#define GPIO_LD1 \
+#define GPIO_LED_2 \
 (GPIO_PORTA | GPIO_PIN10 | GPIO_OUTPUT_CLEAR | GPIO_OUTPUT | GPIO_PULLUP | \
 GPIO_SPEED_50MHz)
 
-#define GPIO_LD2 \
+#define GPIO_LED_3 \
 (GPIO_PORTA | GPIO_PIN15 | GPIO_OUTPUT_CLEAR | GPIO_OUTPUT | GPIO_PULLUP | \
 GPIO_SPEED_50MHz)
 
-#define GPIO_LD3 \
+#define GPIO_LED_4 \
 (GPIO_PORTB | GPIO_PIN12 | GPIO_OUTPUT_CLEAR | GPIO_OUTPUT | GPIO_PULLUP | \
 GPIO_SPEED_50MHz)
 
-#define GPIO_LD4 \
+#define GPIO_LED_5 \
 (GPIO_PORTB | GPIO_PIN13 | GPIO_OUTPUT_CLEAR | GPIO_OUTPUT | GPIO_PULLUP | \
 GPIO_SPEED_50MHz)
 

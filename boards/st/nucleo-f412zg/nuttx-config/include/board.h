@@ -49,6 +49,9 @@
 
 #include <stm32.h>
 
+// DEBUG REMOVE
+#define UAVCAN_STM32_LOG(fmt, ...) printf("uavcan_stm32: " fmt "\n", ##__VA_ARGS__)
+
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
