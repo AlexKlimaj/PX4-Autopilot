@@ -158,6 +158,8 @@ static struct sdio_dev_s *sdio;
 
 __EXPORT int board_app_initialize(uintptr_t arg)
 {
+	JAKE_DEBUG("board_app_initialize");
+
 	px4_platform_init();
 
 	// Configure the DMA allocator.
