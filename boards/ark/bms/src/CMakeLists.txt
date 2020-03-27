@@ -37,6 +37,8 @@ add_library(drivers_board
 	led.c
 	spi.cpp
 	usb.c
+
+	bq40z80_startup.cpp
 )
 
 target_link_libraries(drivers_board
@@ -47,4 +49,5 @@ target_link_libraries(drivers_board
 		nuttx_drivers # sdio
 		px4_layer
 		arch_io_pins
+		drivers__smbus
 )

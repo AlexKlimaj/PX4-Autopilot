@@ -240,7 +240,7 @@ protected:
 	union DeviceId	_device_id {};            	/**< device identifier information */
 
 	const char	*_name{nullptr};		/**< driver name */
-	bool		_debug_enabled{false};		/**< if true, debug messages are printed */
+	bool		_debug_enabled{TRUE};		/**< if true, debug messages are printed */
 
 	explicit Device(const char *name) : _name(name)
 	{

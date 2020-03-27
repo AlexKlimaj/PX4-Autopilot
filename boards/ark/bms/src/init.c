@@ -76,6 +76,7 @@
 #  include <parameters/flashparams/flashfs.h>
 #endif
 
+
 /****************************************************************************
  * Pre-Processor Definitions
  ****************************************************************************/
@@ -91,6 +92,7 @@ __BEGIN_DECLS
 extern void led_init(void);
 extern void led_on(int led);
 extern void led_off(int led);
+extern void bq40z80_startup_init(void);
 __END_DECLS
 
 /************************************************************************************
@@ -163,9 +165,9 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	px4_platform_init();
 
 	// Configure the DMA allocator.
-	if (board_dma_alloc_init() < 0) {
-		syslog(LOG_ERR, "DMA alloc FAILED\n");
-	}
+	// if (board_dma_alloc_init() < 0) {
+	// 	syslog(LOG_ERR, "DMA alloc FAILED\n");
+	// }
 
 	// Set up the serial DMA polling.
 	static struct hrt_call serial_dma_call;
@@ -259,6 +261,15 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	}
 
 #endif
+
+	// JAKE: I need to initialize the display and the BQ here.
+	bq40z80_startup_init();
+	// JAKE: I can put code here to check if button is being held
+	//
+		// I will loop and display readings from the BQ.
+	//
+
+	// Jake Button check is a success, start entire system
 
 	return OK;
 }
