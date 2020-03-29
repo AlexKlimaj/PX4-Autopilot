@@ -244,13 +244,13 @@ void BATT_SMBUS::set_undervoltage_protection(float average_current)
 {
 	// Disable undervoltage protection if armed. Enable if disarmed and cell voltage is above limit.
 	if (average_current > BATT_CURRENT_UNDERVOLTAGE_THRESHOLD) {
-		if (_cell_undervoltage_protection_status != 0) {
+		if (_cell_undervoltage_protection_status == PROTECTED) {
 			// Disable undervoltage protection
 			uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_CUV_DISABLED;
 			uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
 
 			if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
-				_cell_undervoltage_protection_status = 0;
+				_cell_undervoltage_protection_status = NOT_PROTECTED;
 				PX4_WARN("Disabled CUV");
 
 			} else {
@@ -259,14 +259,14 @@ void BATT_SMBUS::set_undervoltage_protection(float average_current)
 		}
 
 	} else {
-		if (_cell_undervoltage_protection_status == 0) {
+		if (_cell_undervoltage_protection_status == NOT_PROTECTED) {
 			if (_min_cell_voltage > BATT_VOLTAGE_UNDERVOLTAGE_THRESHOLD) {
 				// Enable undervoltage protection
 				uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_DEFAULT;
 				uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
 
 				if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
-					_cell_undervoltage_protection_status = 1;
+					_cell_undervoltage_protection_status = PROTECTED;
 					PX4_WARN("Enabled CUV");
 
 				} else {

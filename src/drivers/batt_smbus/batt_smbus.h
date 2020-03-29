@@ -267,8 +267,13 @@ private:
 	/** @param _lifetime_max_delta_cell_voltage Max lifetime delta of the battery cells */
 	float _lifetime_max_delta_cell_voltage{0.f};
 
-	/** @param _cell_undervoltage_protection_status 0 if protection disabled, 1 if enabled */
-	uint8_t _cell_undervoltage_protection_status{1};
+	/** @param _cell_undervoltage_protection_status */
+	enum protection_status {
+		NOT_PROTECTED = 0,
+		PROTECTED = 1,
+	};
+	uint8_t _cell_undervoltage_protection_status {PROTECTED};
+
 
 	BATT_SMBUS(const BATT_SMBUS &) = delete;
 	BATT_SMBUS operator=(const BATT_SMBUS &) = delete;

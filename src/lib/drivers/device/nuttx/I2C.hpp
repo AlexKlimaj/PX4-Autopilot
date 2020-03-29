@@ -92,7 +92,7 @@ protected:
 	/**
 	 * Check for the presence of the device on the bus.
 	 */
-	virtual int	probe() = 0;
+	virtual int	probe() { return PX4_OK; }
 
 	/**
 	 * Perform an I2C transaction to the device.

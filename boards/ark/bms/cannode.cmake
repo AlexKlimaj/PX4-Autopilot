@@ -29,6 +29,7 @@ px4_add_board(
 	UAVCAN_INTERFACES 1
 	SERIAL_PORTS
 	DRIVERS
+		batt_smbus
 		bootloaders
 		gps
 		uavcannode
