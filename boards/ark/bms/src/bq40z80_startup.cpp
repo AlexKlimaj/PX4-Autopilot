@@ -26,4 +26,6 @@ void bq40z80_startup_init(void)
 
 	JAKE_DEBUG("result: %d", result);
 	JAKE_DEBUG("voltage: %d", voltage);
+
+	up_udelay(10000);
 }

@@ -81,10 +81,10 @@ void SSD1306::RunImpl()
 {
 	setup();
 
+	battery_status_s battery;
+
 	while(1)
 	{
-
-		battery_status_s battery;
 		if (_battery_sub.update(&battery)) {
 			updateStatus(battery);
 		}
@@ -93,7 +93,7 @@ void SSD1306::RunImpl()
 	}
 }
 
-void SSD1306::updateStatus(battery_status_s data)
+void SSD1306::updateStatus(const battery_status_s& data)
 {
 	clear();
 
@@ -103,6 +103,8 @@ void SSD1306::updateStatus(battery_status_s data)
 	snprintf(text_temp, sizeof(text_temp), "mV: %d", (int)(data.voltage_v*1000));
 	str = text_temp;
 	drawString(0, 0, str);
+
+	// TODO: replicate below logic without the status_flags
 
 	// if (data.status_flags == 2) { //Battery is charging. Remove this magic number.
 	// 	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*1000));

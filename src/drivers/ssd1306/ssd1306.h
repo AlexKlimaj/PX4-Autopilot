@@ -118,7 +118,7 @@ public:
 
 private:
 
-	void updateStatus(battery_status_s data);
+	void updateStatus(const battery_status_s& data);
 
 	// Driver specific
 	void sendCommand(uint8_t command);
