@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,14 +31,29 @@
  *
  ****************************************************************************/
 
-#include <px4_arch/spi_hw_description.h>
-#include <drivers/drv_sensor.h>
-#include <nuttx/spi/spi.h>
+#pragma once
 
-constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
-	initSPIBus(SPI::Bus::SPI1, {
-		initSPIDevice(DRV_DEVTYPE_SSD1306, SPI::CS{GPIO::PortB, GPIO::Pin2}),
-	}),
+#include <px4_platform_common/module.h>
+#include <px4_platform_common/getopt.h>
+#include <px4_platform_common/i2c_spi_buses.h>
+#include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
+
+#include "ssd1306_spi.h"
+
+class SSD1306 : public I2CSPIDriver<SSD1306>
+{
+public:
+	SSD1306(I2CSPIBusOption bus_option, const int bus, SSD1306_SPI* interface);
+
+	~SSD1306();
+
+	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
+					     int runtime_instance);
+	static void print_usage();
+
+	void RunImpl();
+
+private:
+
+	SSD1306_SPI* _interface {};
 };
-
-static constexpr bool unused = validateSPIConfig(px4_spi_buses);

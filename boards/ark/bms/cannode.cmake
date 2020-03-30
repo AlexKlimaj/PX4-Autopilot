@@ -32,6 +32,7 @@ px4_add_board(
 		batt_smbus
 		bootloaders
 		gps
+		ssd1306
 		uavcannode
 	MODULES
 		# sensors

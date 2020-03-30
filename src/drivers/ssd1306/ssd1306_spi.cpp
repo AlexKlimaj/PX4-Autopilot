@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2019 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,14 +31,15 @@
  *
  ****************************************************************************/
 
-#include <px4_arch/spi_hw_description.h>
-#include <drivers/drv_sensor.h>
-#include <nuttx/spi/spi.h>
+#include "ssd1306_spi.h"
 
-constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
-	initSPIBus(SPI::Bus::SPI1, {
-		initSPIDevice(DRV_DEVTYPE_SSD1306, SPI::CS{GPIO::PortB, GPIO::Pin2}),
-	}),
-};
+SSD1306_SPI::SSD1306_SPI(uint8_t bus, uint32_t device, int bus_frequency, spi_mode_e spi_mode)
+	: SPI("SSD1306_SPI", nullptr, bus, device, spi_mode, bus_frequency)
+{
+	// Anything to do?
+}
 
-static constexpr bool unused = validateSPIConfig(px4_spi_buses);
+int SSD1306_SPI::init()
+{
+	return PX4_ERROR;
+}

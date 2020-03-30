@@ -36,8 +36,7 @@
 #include <drivers/device/device.h>
 #include <lib/drivers/barometer/PX4Barometer.hpp>
 #include <lib/perf/perf_counter.h>
-#include <px4_platform_common/i2c_spi_buses.h>
-#include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
+
 #include <systemlib/err.h>
 
 #include "ms5611.h"
