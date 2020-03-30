@@ -38,6 +38,10 @@
 #include <px4_platform_common/i2c_spi_buses.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 
+#include <uORB/Subscription.hpp>
+#include <uORB/topics/battery_status.h>
+
+
 #include "ssd1306_spi.h"
 #include "ssd1306_fonts.h"
 
@@ -114,6 +118,8 @@ public:
 
 private:
 
+	void updateStatus(battery_status_s data);
+
 	// Driver specific
 	void sendCommand(uint8_t command);
 
@@ -156,5 +162,8 @@ private:
 	const uint8_t* _fontData = ArialMT_Plain_16; // pointer to the font data structure
 
 	FontTableLookupFunction _fontTableLookupFunction = DefaultFontTableLookup;
+
+
+	uORB::Subscription _battery_sub{ORB_ID(battery_status)}; /**< parameter updates subscription */
 
 };

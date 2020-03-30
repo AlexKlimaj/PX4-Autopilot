@@ -92,7 +92,7 @@ public:
 	 */
 	uint8_t get_pec(uint8_t *buffer, uint8_t length);
 
-	virtual int	probe() override { return PX4_ERROR; };
+	virtual int	probe() override { return PX4_OK; };
 
 
 };

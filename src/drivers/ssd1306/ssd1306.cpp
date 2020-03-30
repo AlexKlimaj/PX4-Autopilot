@@ -83,14 +83,43 @@ void SSD1306::RunImpl()
 
 	while(1)
 	{
-		clear();
 
-		drawString(0, 0, "testing 123");
-		display();
+		battery_status_s battery;
+		if (_battery_sub.update(&battery)) {
+			updateStatus(battery);
+		}
 
-		PX4_INFO("running...");
 		usleep(1000000);
 	}
+}
+
+void SSD1306::updateStatus(battery_status_s data)
+{
+	clear();
+
+	char text_temp[20] = {};
+	const char* str;
+
+	snprintf(text_temp, sizeof(text_temp), "mV: %d", (int)(data.voltage_v*1000));
+	str = text_temp;
+	drawString(0, 0, str);
+
+	// if (data.status_flags == 2) { //Battery is charging. Remove this magic number.
+	// 	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*1000));
+	// }
+	// else {
+	// 	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*-1000));
+	// }
+	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*1000));
+
+	str = text_temp;
+	drawString(0, 16, str);
+
+	snprintf(text_temp, sizeof(text_temp), "%d%%", (int)data.remaining*100);
+	str = text_temp;
+	drawString(85, 0, str);
+
+	display();
 }
 
 void SSD1306::display(void)
