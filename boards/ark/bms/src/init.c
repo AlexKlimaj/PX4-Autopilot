@@ -124,6 +124,9 @@ stm32_boardinitialize(void)
 	stm32_configgpio(GPIO_CAN1_TX);
 
 	// Configure SPI all interfaces GPIO & enable power.
+	stm32_configgpio(GPIO_SPI1_OLED_DC);
+	stm32_configgpio(GPIO_SPI1_OLED_RST);
+
 	stm32_spiinitialize();
 }
 

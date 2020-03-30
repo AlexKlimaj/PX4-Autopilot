@@ -41,5 +41,9 @@ public:
 	SSD1306_SPI(uint8_t bus, uint32_t device, int bus_frequency, spi_mode_e spi_mode = SPIDEV_MODE3);
 	virtual ~SSD1306_SPI() = default;
 
-	virtual int	init() override;
+	virtual int	init();
+	virtual int probe();
+
+	void writeByte(uint8_t com);
+
 };

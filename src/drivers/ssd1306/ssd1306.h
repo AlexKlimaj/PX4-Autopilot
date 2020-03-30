@@ -40,12 +40,70 @@
 
 #include "ssd1306_spi.h"
 
+#define pgm_read_byte(addr)   (*(const unsigned char *)(addr))
+
+// Header Values
+#define JUMPTABLE_BYTES 4
+
+#define JUMPTABLE_LSB   1
+#define JUMPTABLE_SIZE  2
+#define JUMPTABLE_WIDTH 3
+#define JUMPTABLE_START 4
+
+#define WIDTH_POS 0
+#define HEIGHT_POS 1
+#define FIRST_CHAR_POS 2
+#define CHAR_NUM_POS 3
+
+// Display commands
+#define CHARGEPUMP 0x8D
+#define COLUMNADDR 0x21
+#define COMSCANDEC 0xC8
+#define COMSCANINC 0xC0
+#define DISPLAYALLON 0xA5
+#define DISPLAYALLON_RESUME 0xA4
+#define DISPLAYOFF 0xAE
+#define DISPLAYON 0xAF
+#define EXTERNALVCC 0x1
+#define INVERTDISPLAY 0xA7
+#define MEMORYMODE 0x20
+#define NORMALDISPLAY 0xA6
+#define PAGEADDR 0x22
+#define SEGREMAP 0xA0
+#define SETCOMPINS 0xDA
+#define SETCONTRAST 0x81
+#define SETDISPLAYCLOCKDIV 0xD5
+#define SETDISPLAYOFFSET 0xD3
+#define SETHIGHCOLUMN 0x10
+#define SETLOWCOLUMN 0x00
+#define SETMULTIPLEX 0xA8
+#define SETPRECHARGE 0xD9
+#define SETSEGMENTREMAP 0xA1
+#define SETSTARTLINE 0x40
+#define SETVCOMDETECT 0xDB
+#define SWITCHCAPVCC 0x2
+
+enum OLEDDISPLAY_TEXT_ALIGNMENT {
+	TEXT_ALIGN_LEFT = 0,
+	TEXT_ALIGN_RIGHT = 1,
+	TEXT_ALIGN_CENTER = 2,
+	TEXT_ALIGN_CENTER_BOTH = 3
+};
+
+enum OLEDDISPLAY_GEOMETRY {
+	GEOMETRY_128_64   = 0,
+	GEOMETRY_128_32,
+};
+
+typedef char (*FontTableLookupFunction)(const uint8_t ch);
+char DefaultFontTableLookup(const uint8_t ch);
+
+
 class SSD1306 : public I2CSPIDriver<SSD1306>
 {
 public:
 	SSD1306(I2CSPIBusOption bus_option, const int bus, SSD1306_SPI* interface);
-
-	~SSD1306();
+	virtual ~SSD1306();
 
 	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
 					     int runtime_instance);
@@ -55,5 +113,47 @@ public:
 
 private:
 
+	// Driver specific
+	void sendCommand(uint8_t command);
+
+	int setup();
+	void sendInitCommands();
+	void resetDisplay(void);
+
+	void display(void);
+
+	void setGeometry(OLEDDISPLAY_GEOMETRY g, uint16_t width = 0, uint16_t height = 0);
+
+	void drawInternal(int16_t xMove, int16_t yMove, int16_t width, int16_t height, const uint8_t *data, uint16_t offset, uint16_t bytesInData);
+	void drawStringInternal(int16_t xMove, int16_t yMove, const char* text, uint16_t textLength, uint16_t textWidth);
+
+	void drawString(int16_t x, int16_t y, const char* text);
+	uint16_t getStringWidth(const char* text, uint16_t length);
+
+	// Sets the current font. Available default fonts:
+	// ArialMT_Plain_10, ArialMT_Plain_16, ArialMT_Plain_24
+	void setFont(const uint8_t *fontData);
+	void setFontTableLookupFunction(FontTableLookupFunction function);
+
+	void clear(void);
+	void displayOn(void);
+	void displayOff(void);
+	void flipScreenVertically();
+
+
 	SSD1306_SPI* _interface {};
+
+	uint8_t* _buffer {};
+
+	OLEDDISPLAY_GEOMETRY _geometry {};
+	OLEDDISPLAY_TEXT_ALIGNMENT _textAlignment {};
+
+	uint16_t  _displayWidth {};
+	uint16_t  _displayHeight {};
+	uint16_t  _displayBufferSize {};
+
+	const uint8_t* _fontData; // pointer to the font data structure
+
+	FontTableLookupFunction _fontTableLookupFunction;
+
 };

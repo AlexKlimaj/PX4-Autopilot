@@ -5,4 +5,4 @@
 
 batt_smbus start -X
 
-ssd1306 start -X
+ssd1306 start -s

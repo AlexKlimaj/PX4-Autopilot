@@ -41,5 +41,16 @@ SSD1306_SPI::SSD1306_SPI(uint8_t bus, uint32_t device, int bus_frequency, spi_mo
 
 int SSD1306_SPI::init()
 {
-	return PX4_ERROR;
+	return SPI::init();
+}
+
+int SSD1306_SPI::probe()
+{
+	PX4_INFO("HES PROBING ME");
+	return PX4_OK;
+}
+
+void SSD1306_SPI::writeByte(uint8_t com)
+{
+	transfer(&com, nullptr, 1);
 }
