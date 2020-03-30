@@ -33,7 +33,7 @@
 
 #include "ssd1306.h"
 
-#define SPI_FREQ_20MHZ 20000000ul
+#define SPI_FREQ_20MHZ 2000000ul
 
 SSD1306::SSD1306(I2CSPIBusOption bus_option, const int bus, SSD1306_SPI* interface)
 	: I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(_interface->get_device_id()), bus_option, bus)
@@ -88,7 +88,7 @@ void SSD1306::RunImpl()
 		drawString(0, 0, "testing 123");
 		display();
 
-		PX4_INFO("Boobs and noobs");
+		PX4_INFO("running...");
 		usleep(1000000);
 	}
 }

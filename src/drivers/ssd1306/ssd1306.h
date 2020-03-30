@@ -39,6 +39,7 @@
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 
 #include "ssd1306_spi.h"
+#include "ssd1306_fonts.h"
 
 #define pgm_read_byte(addr)   (*(const unsigned char *)(addr))
 
@@ -145,15 +146,15 @@ private:
 
 	uint8_t* _buffer {};
 
-	OLEDDISPLAY_GEOMETRY _geometry {};
-	OLEDDISPLAY_TEXT_ALIGNMENT _textAlignment {};
+	OLEDDISPLAY_GEOMETRY _geometry = GEOMETRY_128_32;
+	OLEDDISPLAY_TEXT_ALIGNMENT _textAlignment = TEXT_ALIGN_LEFT;
 
-	uint16_t  _displayWidth {};
-	uint16_t  _displayHeight {};
-	uint16_t  _displayBufferSize {};
+	uint16_t  _displayWidth = 128;
+	uint16_t  _displayHeight = 32;
+	uint16_t  _displayBufferSize = 128*32/8;
 
-	const uint8_t* _fontData; // pointer to the font data structure
+	const uint8_t* _fontData = ArialMT_Plain_16; // pointer to the font data structure
 
-	FontTableLookupFunction _fontTableLookupFunction;
+	FontTableLookupFunction _fontTableLookupFunction = DefaultFontTableLookup;
 
 };
