@@ -142,8 +142,10 @@
 /* Alternate function pin selections ************************************************/
 
 /* Power enable  */
-# define GPIO_PWR_EN (GPIO_PORTC | GPIO_PIN13  | GPIO_OUTPUT | GPIO_PUSHPULL | GPIO_SPEED_2MHz)
+# define GPIO_PWR_EN (GPIO_PORTC | GPIO_PIN13 | GPIO_OUTPUT | GPIO_PUSHPULL | GPIO_SPEED_2MHz)
 
+/* User button for powering on/off the device */
+# define GPIO_BUTTON (GPIO_PORTB | GPIO_PIN0  | GPIO_INPUT | GPIO_FLOAT | GPIO_EXTI)
 
 /* USART2:
  *

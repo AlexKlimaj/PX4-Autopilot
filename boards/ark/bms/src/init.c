@@ -93,6 +93,7 @@ extern void led_init(void);
 extern void led_on(int led);
 extern void led_off(int led);
 extern void bq40z80_startup_init(void);
+extern int button_isr_callback(int irq, FAR void *context);
 __END_DECLS
 
 /************************************************************************************
@@ -112,6 +113,7 @@ stm32_boardinitialize(void)
 	stm32_configgpio(GPIO_PWR_EN);
 	stm32_gpiowrite(GPIO_PWR_EN, true);
 
+	// Configure the button
 
 	// Configure LEDs.
 	board_autoled_initialize();
@@ -278,6 +280,13 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	//
 
 	// Jake Button check is a success, start entire system
+
+
+
+
+	// Enable button interrupts for shutdown
+	stm32_configgpio(GPIO_BUTTON);
+	stm32_gpiosetevent(GPIO_BUTTON, false, true, true, (xcpt_t)button_isr_callback, NULL);
 
 	return OK;
 }

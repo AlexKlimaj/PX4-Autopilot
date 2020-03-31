@@ -37,8 +37,7 @@ add_library(drivers_board
 	led.c
 	spi.cpp
 	usb.c
-
-	bq40z80_startup.cpp
+	ark_startup.cpp
 )
 
 target_link_libraries(drivers_board
