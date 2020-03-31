@@ -108,6 +108,11 @@ __END_DECLS
 __EXPORT void
 stm32_boardinitialize(void)
 {
+	// First things first, enable the regulator
+	stm32_configgpio(GPIO_PWR_EN);
+	stm32_gpiowrite(GPIO_PWR_EN, true);
+
+
 	// Configure LEDs.
 	board_autoled_initialize();
 

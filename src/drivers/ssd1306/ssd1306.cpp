@@ -50,7 +50,7 @@ SSD1306::~SSD1306()
 	}
 }
 
-int SSD1306::setup()
+int SSD1306::init()
 {
 	if (!_buffer)
 	{
@@ -79,17 +79,11 @@ int SSD1306::setup()
 
 void SSD1306::RunImpl()
 {
-	setup();
 
 	battery_status_s battery;
 
-	while(1)
-	{
-		if (_battery_sub.update(&battery)) {
-			updateStatus(battery);
-		}
-
-		usleep(1000000);
+	if (_battery_sub.update(&battery)) {
+		updateStatus(battery);
 	}
 }
 
@@ -479,6 +473,8 @@ I2CSPIDriverBase *SSD1306::instantiate(const BusCLIArguments &cli, const BusInst
 		PX4_INFO("alloc failed");
 		return nullptr;
 	}
+
+	instance->init();
 
 	unsigned interval_us = 1000000;
 	instance->ScheduleOnInterval(interval_us);

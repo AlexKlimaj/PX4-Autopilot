@@ -141,6 +141,10 @@
 
 /* Alternate function pin selections ************************************************/
 
+/* Power enable  */
+# define GPIO_PWR_EN (GPIO_PORTC | GPIO_PIN13  | GPIO_OUTPUT | GPIO_PUSHPULL | GPIO_SPEED_2MHz)
+
+
 /* USART2:
  *
  * Used for NSH console.
@@ -149,8 +153,8 @@
  *  TXD: PD5    CN9 pin 6
  */
 
-#  define GPIO_USART2_RX GPIO_USART2_RX_1
-#  define GPIO_USART2_TX GPIO_USART2_TX_1
+#define GPIO_USART2_RX GPIO_USART2_RX_1
+#define GPIO_USART2_TX GPIO_USART2_TX_1
 
 // JAKE: TODO: do we need to use DMA?
 /* UART RX DMA configurations */

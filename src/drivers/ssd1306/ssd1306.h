@@ -123,7 +123,7 @@ private:
 	// Driver specific
 	void sendCommand(uint8_t command);
 
-	int setup();
+	int init();
 	void sendInitCommands();
 	void resetDisplay(void);
 
@@ -164,6 +164,6 @@ private:
 	FontTableLookupFunction _fontTableLookupFunction = DefaultFontTableLookup;
 
 
-	uORB::Subscription _battery_sub{ORB_ID(battery_status)}; /**< parameter updates subscription */
+	uORB::Subscription _battery_sub{ORB_ID(battery_status)};
 
 };
