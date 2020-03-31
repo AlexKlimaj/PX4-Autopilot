@@ -98,20 +98,13 @@ void SSD1306::updateStatus(const battery_status_s& data)
 	str = text_temp;
 	drawString(0, 0, str);
 
-	// TODO: replicate below logic without the status_flags
-
-	// if (data.status_flags == 2) { //Battery is charging. Remove this magic number.
-	// 	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*1000));
-	// }
-	// else {
-	// 	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*-1000));
-	// }
+	// TODO: verify we are properly handling negatives here.
 	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*1000));
 
 	str = text_temp;
 	drawString(0, 16, str);
 
-	snprintf(text_temp, sizeof(text_temp), "%d%%", (int)data.remaining*100);
+	snprintf(text_temp, sizeof(text_temp), "%d%%", (int)(data.remaining*100));
 	str = text_temp;
 	drawString(85, 0, str);
 
