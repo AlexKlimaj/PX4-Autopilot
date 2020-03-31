@@ -66,8 +66,9 @@
 
 #define BATT_SMBUS_CURRENT                              0x0A            ///< current register
 #define BATT_SMBUS_AVERAGE_CURRENT                      0x0B            ///< average current register
-#define BATT_SMBUS_MAX_ERROR				0x0C		///< max error
-#define BATT_SMBUS_RELATIVE_SOC				0x0D		///< Relative State Of Charge
+#define BATT_SMBUS_MAX_ERROR							0x0C			///< max error
+#define BATT_SMBUS_RELATIVE_SOC							0x0D			///< Relative State Of Charge
+#define BATT_SMBUS_TEMP                                 0x08            ///< temperature register
 #define BATT_SMBUS_TEMP                                 0x08            ///< temperature register
 #define BATT_SMBUS_VOLTAGE                              0x09            ///< voltage register
 #define BATT_SMBUS_FULL_CHARGE_CAPACITY                 0x10            ///< capacity when fully charged
