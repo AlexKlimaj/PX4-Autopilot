@@ -7,3 +7,5 @@ ssd1306 start -s
 
 # If batt_smbus is started before ssd1306 we get a hardfault... I have no idea why
 batt_smbus start -X
+
+button_task start

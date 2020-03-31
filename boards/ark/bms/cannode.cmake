@@ -35,7 +35,7 @@ px4_add_board(
 		ssd1306
 		uavcannode
 	MODULES
-		# sensors
+		button_task
 	SYSTEMCMDS
 		param
 		perf

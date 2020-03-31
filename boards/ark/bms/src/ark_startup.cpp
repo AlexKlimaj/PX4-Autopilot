@@ -9,7 +9,6 @@ SMBus* _interface;
 // Expose these functions for use in init.c
 __BEGIN_DECLS
 extern void bq40z80_startup_init(void);
-extern int button_isr_callback(int irq, FAR void *context);
 __END_DECLS
 
 void bq40z80_startup_init(void)
@@ -29,10 +28,4 @@ void bq40z80_startup_init(void)
 	JAKE_DEBUG("voltage: %d", voltage);
 
 	up_udelay(10000);
-}
-
-int button_isr_callback(int irq, FAR void *context)
-{
-	printf("button pressed: %d\n", irq);
-	return OK;
 }
