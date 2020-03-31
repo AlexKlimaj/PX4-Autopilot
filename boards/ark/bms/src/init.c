@@ -114,10 +114,8 @@ stm32_boardinitialize(void)
 
 	// Configure the button
 
-	// Configure LEDs.
-	board_autoled_initialize();
-
-	// stm32_configgpio(GPIO_POWER_BUTTON);
+	// Configure LEDs
+	led_init();
 
 	// Configure ADC pins.
 	// stm32_configgpio(GPIO_ADC1_IN2);	/* BATT_VOLTAGE_SENS */
@@ -132,7 +130,6 @@ stm32_boardinitialize(void)
 	// Configure SPI all interfaces GPIO & enable power.
 	stm32_configgpio(GPIO_SPI1_OLED_DC);
 	stm32_configgpio(GPIO_SPI1_OLED_RST);
-
 	stm32_spiinitialize();
 }
 
@@ -196,10 +193,10 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 		       NULL);
 
 	// Initial LED state.
-	drv_led_start();
-	led_off(LED_RED);
-	led_off(LED_GREEN);
-	led_off(LED_BLUE);
+	// drv_led_start();
+	// led_off(LED_RED);
+	// led_off(LED_GREEN);
+	// led_off(LED_BLUE);
 
 #ifdef CONFIG_BOARD_CRASHDUMP
 	if (board_hardfault_init(2, true) != 0) {

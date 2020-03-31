@@ -60,8 +60,6 @@ extern void led_off(int led);
 extern void led_toggle(int led);
 __END_DECLS
 
-
-
 static uint32_t g_ledmap[] = {
 	GPIO_LED_1,
 	GPIO_LED_2,
@@ -75,6 +73,7 @@ __EXPORT void led_init(void)
 	/* Configure LED GPIOs for output */
 	for (size_t l = 0; l < (sizeof(g_ledmap) / sizeof(g_ledmap[0])); l++) {
 		stm32_configgpio(g_ledmap[l]);
+		stm32_gpiowrite(g_ledmap[l], true);
 	}
 }
 
@@ -102,6 +101,5 @@ __EXPORT void led_off(int led)
 
 __EXPORT void led_toggle(int led)
 {
-
 	phy_set_led(led, !phy_get_led(led));
 }

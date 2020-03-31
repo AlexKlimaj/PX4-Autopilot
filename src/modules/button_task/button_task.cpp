@@ -46,9 +46,13 @@
 #include <drivers/drv_hrt.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 
+#include <uORB/Subscription.hpp>
+#include <uORB/topics/battery_status.h>
+
 #define BUTTON_DEBOUNCE_DURATION_US    1000
 #define BUTTON_SHORT_PRESS_DURATION_US 300000
 #define BUTTON_LONG_PRESS_DURATION_US  500000
+#define BQ40Z80_SHUTDOWN_CURRENT_LIMIT_A 0.5f // Current charging or discharging must be less than this to allow turning off the FETs
 static constexpr uint64_t BUTTON_SHUTDOWN_DURATION_US = 3000000ul;
 
 using namespace time_literals;
@@ -77,6 +81,12 @@ public:
 private:
 	void Run() override;
 
+	void updateLEDs(const battery_status_s& data);
+	void pulseLEDs(void);
+
+	uORB::Subscription _battery_sub{ORB_ID(battery_status)};
+
+	int _led_pulse_state = {};
 };
 
 ButtonTask::ButtonTask() :
@@ -105,7 +115,14 @@ ButtonTask::Run()
 		return;
 	}
 
+	battery_status_s data;
+	bool battery_update = _battery_sub.update(&data);
+
 	if (!button_pressed) {
+		// Update LEDs with battery state
+		if (battery_update) {
+			updateLEDs(data);
+		}
 		return;
 	} else {
 		button_pressed = false;
@@ -122,8 +139,10 @@ ButtonTask::Run()
 		uint64_t elapsed = time_now - start_time;
 		PX4_INFO("button held: %d", (int)elapsed);
 
-		// TODO: add check for current
-		if (elapsed > BUTTON_SHUTDOWN_DURATION_US) {
+		// Pulse the LEDs
+		pulseLEDs();
+
+		if ((elapsed > BUTTON_SHUTDOWN_DURATION_US) && (data.current_a < BQ40Z80_SHUTDOWN_CURRENT_LIMIT_A)) {
 
 			// TODO: emit shutdown message
 			PX4_INFO("Time to shut down");
@@ -138,7 +157,128 @@ ButtonTask::Run()
 		state = stm32_gpioread(GPIO_BUTTON);
 	}
 
-	PX4_INFO("button task running...");
+	_led_pulse_state = 0;
+}
+
+void ButtonTask::updateLEDs(const battery_status_s& data)
+{
+	float remaining = data.remaining; // 0 - 1
+	int remaining_fifth = (int)(remaining * 5 + 1);
+
+	switch (remaining_fifth)
+	{
+		case 1:
+			stm32_gpiowrite(GPIO_LED_5, false);
+			stm32_gpiowrite(GPIO_LED_4, true);
+			stm32_gpiowrite(GPIO_LED_3, true);
+			stm32_gpiowrite(GPIO_LED_2, true);
+			stm32_gpiowrite(GPIO_LED_1, true);
+			break;
+		case 2:
+			stm32_gpiowrite(GPIO_LED_5, false);
+			stm32_gpiowrite(GPIO_LED_4, false);
+			stm32_gpiowrite(GPIO_LED_3, true);
+			stm32_gpiowrite(GPIO_LED_2, true);
+			stm32_gpiowrite(GPIO_LED_1, true);
+			break;
+		case 3:
+			stm32_gpiowrite(GPIO_LED_5, false);
+			stm32_gpiowrite(GPIO_LED_4, false);
+			stm32_gpiowrite(GPIO_LED_3, false);
+			stm32_gpiowrite(GPIO_LED_2, true);
+			stm32_gpiowrite(GPIO_LED_1, true);
+			break;
+		case 4:
+			stm32_gpiowrite(GPIO_LED_5, false);
+			stm32_gpiowrite(GPIO_LED_4, false);
+			stm32_gpiowrite(GPIO_LED_3, false);
+			stm32_gpiowrite(GPIO_LED_2, false);
+			stm32_gpiowrite(GPIO_LED_1, true);
+			break;
+		case 5:
+			stm32_gpiowrite(GPIO_LED_5, false);
+			stm32_gpiowrite(GPIO_LED_4, false);
+			stm32_gpiowrite(GPIO_LED_3, false);
+			stm32_gpiowrite(GPIO_LED_2, false);
+			stm32_gpiowrite(GPIO_LED_1, false);
+			break;
+	}
+}
+
+void ButtonTask::pulseLEDs(void)
+{
+	switch (_led_pulse_state)
+	{
+		case 0:
+			stm32_gpiowrite(GPIO_LED_5, true);
+			stm32_gpiowrite(GPIO_LED_4, true);
+			stm32_gpiowrite(GPIO_LED_3, true);
+			stm32_gpiowrite(GPIO_LED_2, true);
+			stm32_gpiowrite(GPIO_LED_1, true);
+			break;
+
+		case 1:
+			stm32_gpiowrite(GPIO_LED_5, false);
+			stm32_gpiowrite(GPIO_LED_4, true);
+			stm32_gpiowrite(GPIO_LED_3, true);
+			stm32_gpiowrite(GPIO_LED_2, true);
+			stm32_gpiowrite(GPIO_LED_1, true);
+			break;
+
+		case 2:
+			stm32_gpiowrite(GPIO_LED_5, false);
+			stm32_gpiowrite(GPIO_LED_4, false);
+			stm32_gpiowrite(GPIO_LED_3, true);
+			stm32_gpiowrite(GPIO_LED_2, true);
+			stm32_gpiowrite(GPIO_LED_1, true);
+			break;
+
+		case 3:
+			stm32_gpiowrite(GPIO_LED_5, false);
+			stm32_gpiowrite(GPIO_LED_4, false);
+			stm32_gpiowrite(GPIO_LED_3, false);
+			stm32_gpiowrite(GPIO_LED_2, true);
+			stm32_gpiowrite(GPIO_LED_1, true);
+			break;
+
+		case 4:
+			stm32_gpiowrite(GPIO_LED_5, true);
+			stm32_gpiowrite(GPIO_LED_4, false);
+			stm32_gpiowrite(GPIO_LED_3, false);
+			stm32_gpiowrite(GPIO_LED_2, false);
+			stm32_gpiowrite(GPIO_LED_1, true);
+			break;
+
+		case 5:
+			stm32_gpiowrite(GPIO_LED_5, true);
+			stm32_gpiowrite(GPIO_LED_4, true);
+			stm32_gpiowrite(GPIO_LED_3, false);
+			stm32_gpiowrite(GPIO_LED_2, false);
+			stm32_gpiowrite(GPIO_LED_1, false);
+			break;
+
+		case 6:
+			stm32_gpiowrite(GPIO_LED_5, true);
+			stm32_gpiowrite(GPIO_LED_4, true);
+			stm32_gpiowrite(GPIO_LED_3, true);
+			stm32_gpiowrite(GPIO_LED_2, false);
+			stm32_gpiowrite(GPIO_LED_1, false);
+			break;
+
+		case 7:
+			stm32_gpiowrite(GPIO_LED_5, true);
+			stm32_gpiowrite(GPIO_LED_4, true);
+			stm32_gpiowrite(GPIO_LED_3, true);
+			stm32_gpiowrite(GPIO_LED_2, true);
+			stm32_gpiowrite(GPIO_LED_1, false);
+			break;
+	}
+
+	_led_pulse_state++;
+
+	if (_led_pulse_state == 8) {
+		_led_pulse_state = 0;
+	}
 }
 
 int

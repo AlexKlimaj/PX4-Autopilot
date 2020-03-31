@@ -56,10 +56,10 @@
 
 /* PX4FMU GPIOs ***********************************************************************************/
 /* LEDs */
-#define BOARD_HAS_CONTROL_STATUS_LEDS 1
-#define BOARD_OVERLOAD_LED     GPIO_LED_1
-#define BOARD_ARMED_LED        GPIO_LED_2
-#define BOARD_ARMED_STATE_LED  GPIO_LED_3
+// #define BOARD_HAS_CONTROL_STATUS_LEDS 1
+// #define BOARD_OVERLOAD_LED     GPIO_LED_1
+// #define BOARD_ARMED_LED        GPIO_LED_2
+// #define BOARD_ARMED_STATE_LED  GPIO_LED_3
 
 /* Button */
 #define GPIO_POWER_BUTTON (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTC|GPIO_PIN13) /* Initialize HIGH so MCU stays on */
