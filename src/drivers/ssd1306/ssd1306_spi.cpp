@@ -41,16 +41,18 @@ SSD1306_SPI::SSD1306_SPI(uint8_t bus, uint32_t device, int bus_frequency, spi_mo
 
 int SSD1306_SPI::init()
 {
+	// I think we just need to init the base class? Not sure...
 	return SPI::init();
 }
 
 int SSD1306_SPI::probe()
 {
+	// TODO: implement this
 	PX4_INFO("HES PROBING ME");
 	return PX4_OK;
 }
 
-void SSD1306_SPI::writeByte(uint8_t com)
+void SSD1306_SPI::writeBytes(uint8_t* data, size_t size)
 {
-	transfer(&com, nullptr, 1);
+	transfer(data, nullptr, size);
 }

@@ -42,7 +42,6 @@
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/battery_status.h>
 
-
 #include "ssd1306_spi.h"
 #include "ssd1306_fonts.h"
 
@@ -123,14 +122,13 @@ private:
 
 	// Driver specific
 	void sendCommand(uint8_t command);
+	void sendData(uint8_t* data, size_t size);
 
 	int init();
 	void sendInitCommands();
 	void resetDisplay(void);
 
 	void display(void);
-
-	void setGeometry(OLEDDISPLAY_GEOMETRY g, uint16_t width = 0, uint16_t height = 0);
 
 	void drawInternal(int16_t xMove, int16_t yMove, int16_t width, int16_t height, const uint8_t *data, uint16_t offset, uint16_t bytesInData);
 	void drawStringInternal(int16_t xMove, int16_t yMove, const char* text, uint16_t textLength, uint16_t textWidth);
@@ -148,23 +146,22 @@ private:
 	void displayOff(void);
 	void flipScreenVertically();
 
-
 	SSD1306_SPI* _interface {};
+
+	uORB::Subscription _battery_sub{ORB_ID(battery_status)};
 
 	uint8_t* _buffer {};
 
 	OLEDDISPLAY_GEOMETRY _geometry = GEOMETRY_128_32;
 	OLEDDISPLAY_TEXT_ALIGNMENT _textAlignment = TEXT_ALIGN_LEFT;
 
-	uint16_t  _displayWidth = 128;
-	uint16_t  _displayHeight = 32;
-	uint16_t  _displayBufferSize = 128*32/8;
+	static constexpr uint16_t DISPLAY_WIDTH = 128;
+	static constexpr uint16_t DISPLAY_HEIGHT = 32;
+	static constexpr uint16_t DISPLAY_BUFFER_SIZE = DISPLAY_WIDTH * DISPLAY_HEIGHT / 8;
 
 	const uint8_t* _fontData = ArialMT_Plain_16; // pointer to the font data structure
 
 	FontTableLookupFunction _fontTableLookupFunction = DefaultFontTableLookup;
 
-
-	uORB::Subscription _battery_sub{ORB_ID(battery_status)};
 
 };

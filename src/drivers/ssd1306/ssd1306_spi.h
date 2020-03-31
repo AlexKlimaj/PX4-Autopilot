@@ -44,6 +44,5 @@ public:
 	virtual int	init();
 	virtual int probe();
 
-	void writeByte(uint8_t com);
-
+	void writeBytes(uint8_t* data, size_t size);
 };

@@ -56,7 +56,7 @@ int SSD1306::init()
 {
 	if (!_buffer)
 	{
-		_buffer = new uint8_t[_displayBufferSize];
+		_buffer = new uint8_t[DISPLAY_BUFFER_SIZE];
 
 		if(!_buffer)
 		{
@@ -70,7 +70,6 @@ int SSD1306::init()
 	usleep(10000);
 	stm32_gpiowrite(GPIO_SPI1_OLED_RST, true);
 
-	PX4_INFO("sending display init commands");
 	sendInitCommands();
 	resetDisplay();
 
@@ -130,18 +129,13 @@ void SSD1306::display(void)
 		sendCommand(0x3);
 	}
 
-	stm32_gpiowrite(GPIO_SPI1_OLED_DC, true);
-	for (uint16_t i = 0; i < _displayBufferSize; i++)
-	{
-		_interface->writeByte(_buffer[i]);
-	}
-}
+	sendData(_buffer, DISPLAY_BUFFER_SIZE);
 
-
-void SSD1306::sendCommand(uint8_t command)
-{
-	stm32_gpiowrite(GPIO_SPI1_OLED_DC, false);
-	_interface->writeByte(command);
+	// stm32_gpiowrite(GPIO_SPI1_OLED_DC, true);
+	// for (uint16_t i = 0; i < DISPLAY_BUFFER_SIZE; i++)
+	// {
+	// 	_interface->writeByte(_buffer[i]);
+	// }
 }
 
 void SSD1306::sendInitCommands(void)
@@ -150,7 +144,7 @@ void SSD1306::sendInitCommands(void)
 	sendCommand(SETDISPLAYCLOCKDIV);
 	sendCommand(0xF0); // Increase speed of the display max ~96Hz
 	sendCommand(SETMULTIPLEX);
-	sendCommand(_displayHeight - 1);
+	sendCommand(DISPLAY_HEIGHT - 1);
 	sendCommand(SETDISPLAYOFFSET);
 	sendCommand(0x00);
 	sendCommand(SETSTARTLINE);
@@ -190,13 +184,6 @@ void SSD1306::sendInitCommands(void)
 	sendCommand(NORMALDISPLAY);
 	sendCommand(0x2e);            // stop scroll
 	sendCommand(DISPLAYON);
-}
-
-void SSD1306::resetDisplay(void)
-{
-	clear();
-	display();
-	flipScreenVertically(); // We've got to flip it for it to be correct for our use
 }
 
 void SSD1306::drawString(int16_t xMove, int16_t yMove, const char* text)
@@ -247,12 +234,12 @@ void SSD1306::drawStringInternal(int16_t xMove, int16_t yMove, const char* text,
 	}
 
 	// Don't draw anything if it is not on the screen.
-	if (xMove + textWidth  < 0 || xMove > _displayWidth )
+	if (xMove + textWidth  < 0 || xMove > DISPLAY_WIDTH )
 	{
 		return;
 	}
 
-	if (yMove + textHeight < 0 || yMove > _displayWidth )
+	if (yMove + textHeight < 0 || yMove > DISPLAY_WIDTH )
 	{
 		return;
 	}
@@ -286,76 +273,17 @@ void SSD1306::drawStringInternal(int16_t xMove, int16_t yMove, const char* text,
 	}
 }
 
-uint16_t SSD1306::getStringWidth(const char* text, uint16_t length)
-{
-	uint16_t firstChar = pgm_read_byte(_fontData + FIRST_CHAR_POS);
-	uint16_t stringWidth = 0;
-	uint16_t maxWidth = 0;
-
-	while (length--)
-	{
-		stringWidth += pgm_read_byte(_fontData + JUMPTABLE_START + (text[length] - firstChar) * JUMPTABLE_BYTES + JUMPTABLE_WIDTH);
-		if (text[length] == 10)
-		{
-			maxWidth = math::max(maxWidth, stringWidth);
-			stringWidth = 0;
-		}
-	}
-
-	return math::max(maxWidth, stringWidth);
-}
-
-void SSD1306::displayOn(void)
-{
-	sendCommand(DISPLAYON);
-}
-
-void SSD1306::displayOff(void)
-{
-	sendCommand(DISPLAYOFF);
-}
-
-void SSD1306::flipScreenVertically()
-{
-	sendCommand(SEGREMAP | 0x01);
-	sendCommand(COMSCANDEC); // Rotate screen 180 Deg
-}
-
-void SSD1306::clear(void)
-{
-	memset(_buffer, 0, _displayBufferSize);
-}
-
-void SSD1306::setGeometry(OLEDDISPLAY_GEOMETRY g, uint16_t width, uint16_t height)
-{
-	_geometry = g;
-	switch (g)
-	{
-		case GEOMETRY_128_64:
-			_displayWidth = 128;
-			_displayHeight = 64;
-			break;
-
-		case GEOMETRY_128_32:
-			_displayWidth = 128;
-			_displayHeight = 32;
-			break;
-	}
-
-	_displayBufferSize = _displayWidth * _displayHeight / 8;
-}
-
 void SSD1306::drawInternal(int16_t xMove, int16_t yMove, int16_t width, int16_t height, const uint8_t *data, uint16_t offset, uint16_t bytesInData)
 {
 	if (width < 0 || height < 0)
 	{
 		return;
 	}
-	if (yMove + height < 0 || yMove > _displayHeight)
+	if (yMove + height < 0 || yMove > DISPLAY_HEIGHT)
 	{
 		return;
 	}
-	if (xMove + width  < 0 || xMove > _displayWidth)
+	if (xMove + width  < 0 || xMove > DISPLAY_WIDTH)
 	{
 		return;
 	}
@@ -381,21 +309,21 @@ void SSD1306::drawInternal(int16_t xMove, int16_t yMove, int16_t width, int16_t 
 		uint8_t currentByte = pgm_read_byte(data + offset + i);
 
 		int16_t xPos = xMove + (i / rasterHeight);
-		int16_t yPos = ((yMove >> 3) + (i % rasterHeight)) * _displayWidth;
+		int16_t yPos = ((yMove >> 3) + (i % rasterHeight)) * DISPLAY_WIDTH;
 
 		int16_t dataPos    = xPos  + yPos;
 
-		if (dataPos >=  0  && dataPos < _displayBufferSize &&
-			xPos    >=  0  && xPos    < _displayWidth )
+		if (dataPos >=  0  && dataPos < DISPLAY_BUFFER_SIZE &&
+			xPos    >=  0  && xPos    < DISPLAY_WIDTH )
 		{
 
 			if (yOffset >= 0)
 			{
 				_buffer[dataPos] |= currentByte << yOffset;
 
-				if (dataPos < (_displayBufferSize - _displayWidth))
+				if (dataPos < (DISPLAY_BUFFER_SIZE - DISPLAY_WIDTH))
 				{
-					_buffer[dataPos + _displayWidth] |= currentByte >> (8 - yOffset);
+					_buffer[dataPos + DISPLAY_WIDTH] |= currentByte >> (8 - yOffset);
 				}
 			}
 			else
@@ -413,6 +341,65 @@ void SSD1306::drawInternal(int16_t xMove, int16_t yMove, int16_t width, int16_t 
 			}
 		}
 	}
+}
+
+uint16_t SSD1306::getStringWidth(const char* text, uint16_t length)
+{
+	uint16_t firstChar = pgm_read_byte(_fontData + FIRST_CHAR_POS);
+	uint16_t stringWidth = 0;
+	uint16_t maxWidth = 0;
+
+	while (length--)
+	{
+		stringWidth += pgm_read_byte(_fontData + JUMPTABLE_START + (text[length] - firstChar) * JUMPTABLE_BYTES + JUMPTABLE_WIDTH);
+		if (text[length] == 10)
+		{
+			maxWidth = math::max(maxWidth, stringWidth);
+			stringWidth = 0;
+		}
+	}
+
+	return math::max(maxWidth, stringWidth);
+}
+
+void SSD1306::sendCommand(uint8_t command)
+{
+	stm32_gpiowrite(GPIO_SPI1_OLED_DC, false); // deassert data control line
+	_interface->writeBytes(&command, 1);
+}
+
+void SSD1306::sendData(uint8_t* data, size_t size)
+{
+	stm32_gpiowrite(GPIO_SPI1_OLED_DC, true); // assert data control line
+	_interface->writeBytes(data, size);
+}
+
+void SSD1306::resetDisplay(void)
+{
+	clear();
+	display();
+	flipScreenVertically(); // We've got to flip it for it to be correct for our use
+}
+
+void SSD1306::flipScreenVertically()
+{
+	sendCommand(SEGREMAP | 0x01);
+	sendCommand(COMSCANDEC); // Rotate screen 180 Deg
+}
+
+void SSD1306::displayOn(void)
+{
+	sendCommand(DISPLAYON);
+}
+
+void SSD1306::displayOff(void)
+{
+	sendCommand(DISPLAYOFF);
+}
+
+void SSD1306::clear(void)
+{
+	memset(_buffer, 0, DISPLAY_BUFFER_SIZE);
 }
 
 void SSD1306::setFontTableLookupFunction(FontTableLookupFunction function)
@@ -444,6 +431,9 @@ char DefaultFontTableLookup(const uint8_t ch)
 
 	return (uint8_t) 0; // otherwise: return zero, if character has to be ignored
 }
+
+//  End of driver implementation details -- below is driver boilerplate
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 I2CSPIDriverBase *SSD1306::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
 				      int runtime_instance)
