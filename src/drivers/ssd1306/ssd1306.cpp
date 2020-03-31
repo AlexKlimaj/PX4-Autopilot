@@ -35,6 +35,8 @@
 
 #define SPI_FREQ_20MHZ 2000000ul
 
+using namespace time_literals;
+
 SSD1306::SSD1306(I2CSPIBusOption bus_option, const int bus, SSD1306_SPI* interface)
 	: I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(_interface->get_device_id()), bus_option, bus)
 	, _interface(interface)
@@ -79,7 +81,6 @@ int SSD1306::init()
 
 void SSD1306::RunImpl()
 {
-
 	battery_status_s battery;
 
 	if (_battery_sub.update(&battery)) {
@@ -469,8 +470,7 @@ I2CSPIDriverBase *SSD1306::instantiate(const BusCLIArguments &cli, const BusInst
 
 	instance->init();
 
-	unsigned interval_us = 1000000;
-	instance->ScheduleOnInterval(interval_us);
+	instance->ScheduleOnInterval(500_ms);
 
 	return instance;
 }

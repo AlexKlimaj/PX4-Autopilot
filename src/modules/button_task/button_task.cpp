@@ -43,29 +43,17 @@
 
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/module.h>
-#include <px4_platform_common/module_params.h>
-#include <px4_platform_common/getopt.h>
-#include <px4_platform_common/posix.h>
-#include <px4_platform_common/tasks.h>
-#include <px4_platform_common/time.h>
-#include <px4_platform_common/log.h>
-#include <lib/mathlib/mathlib.h>
 #include <drivers/drv_hrt.h>
-#include <drivers/drv_adc.h>
-#include <lib/parameters/param.h>
-#include <lib/perf/perf_counter.h>
-#include <lib/battery/battery.h>
-#include <lib/conversion/rotation.h>
-#include <uORB/Subscription.hpp>
-#include <uORB/Publication.hpp>
-#include <uORB/topics/actuator_controls.h>
-#include <uORB/topics/parameter_update.h>
-#include <uORB/topics/adc_report.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
+
+#define BUTTON_DEBOUNCE_DURATION_US    1000
+#define BUTTON_SHORT_PRESS_DURATION_US 300000
+#define BUTTON_LONG_PRESS_DURATION_US  500000
+static constexpr uint64_t BUTTON_SHUTDOWN_DURATION_US = 3000000ul;
 
 using namespace time_literals;
 
-static px4_sem_t _semaphore = {};
+static bool button_pressed = false;
 
 class ButtonTask : public ModuleBase<ButtonTask>, public px4::ScheduledWorkItem
 {
@@ -100,26 +88,54 @@ ButtonTask::ButtonTask() :
 ButtonTask::~ButtonTask()
 {
 	ScheduleClear();
-
-	px4_sem_destroy(&_semaphore);
 }
 
 int ButtonTask::isr_callback(int irq, FAR void *context, void *arg)
 {
 	printf("button pressed: %d\n", irq);
-	px4_sem_post(&_semaphore);
-
+	button_pressed = true;
 	return OK;
 }
 
 void
 ButtonTask::Run()
 {
-	px4_sem_wait(&_semaphore);
-
 	if (should_exit()) {
 		exit_and_cleanup();
 		return;
+	}
+
+	if (!button_pressed) {
+		return;
+	} else {
+		button_pressed = false;
+	}
+
+	bool state = stm32_gpioread(GPIO_BUTTON);
+
+	auto start_time = hrt_absolute_time();
+	auto time_now = start_time;
+
+	while (!state) {
+		time_now = hrt_absolute_time();
+
+		uint64_t elapsed = time_now - start_time;
+		PX4_INFO("button held: %d", (int)elapsed);
+
+		// TODO: add check for current
+		if (elapsed > BUTTON_SHUTDOWN_DURATION_US) {
+
+			// TODO: emit shutdown message
+			PX4_INFO("Time to shut down");
+
+			// Time to shutdown
+			px4_arch_gpiosetevent(GPIO_BUTTON, false, true, false, &ButtonTask::isr_callback, this);
+
+			stm32_gpiowrite(GPIO_PWR_EN, false);
+		}
+
+		usleep(100000); // 10hz
+		state = stm32_gpioread(GPIO_BUTTON);
 	}
 
 	PX4_INFO("button task running...");
@@ -154,11 +170,11 @@ ButtonTask::init()
 {
 	ScheduleOnInterval(100_ms);
 
-	px4_sem_init(&_semaphore, 0, 0);
-
 	// Enable button interrupts for shutdown
 	px4_arch_configgpio(GPIO_BUTTON);
 	px4_arch_gpiosetevent(GPIO_BUTTON, false, true, true, &ButtonTask::isr_callback, this);
+
+	PX4_INFO("starting");
 
 	return true;
 }
