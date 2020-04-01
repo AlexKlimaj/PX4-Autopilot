@@ -103,7 +103,6 @@ I2C::init()
 
 	if (_dev == nullptr) {
 		DEVICE_DEBUG("failed to init I2C");
-
 		ret = -ENOENT;
 		goto out;
 	}
