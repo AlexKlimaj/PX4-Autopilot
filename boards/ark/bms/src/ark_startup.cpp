@@ -1,4 +1,5 @@
 #include <board_config.h>
+#include <drivers/drv_hrt.h>
 #include <lib/drivers/smbus/SMBus.hpp>
 #include "ssd1306.h"
 #include <uORB/topics/battery_status.h>
@@ -16,8 +17,9 @@ static float _soc = 0;
 
 // Expose these functions for use in init.c
 __BEGIN_DECLS
-extern void display_bq_startup_init(void);
-extern void check_button_and_update_display();
+extern void ark_display_bq_startup_init(void);
+extern void ark_check_button_and_update_display();
+extern void ark_clean_up();
 __END_DECLS
 
 void update_battery_data(void);
@@ -25,7 +27,7 @@ void update_led_status(void);
 
 
 
-void display_bq_startup_init(void)
+void ark_display_bq_startup_init(void)
 {
 	int address = BATT_SMBUS_ADDR;
 	int bus = 1;
@@ -40,35 +42,58 @@ void display_bq_startup_init(void)
 	up_udelay(10000);
 }
 
-void check_button_and_update_display()
+void ark_clean_up(void)
 {
-	unsigned button_held_count = 0;
-	unsigned counter = 0;
+	delete _interface;
+	ssd1306::clean_up();
+}
 
-	// Button should be held for 3 seconds
-	while ((counter < 30)) {
+void ark_check_button_and_update_display()
+{
+	static constexpr uint64_t BUTTON_SHUTDOWN_DURATION_US = 3000000;
+
+	unsigned times_thru_loop = 0;
+	unsigned button_still_held = 0;
+
+	auto start_time = hrt_absolute_time();
+	auto time_now = start_time;
+
+	// Button should be held for 2.5 out of 3 seconds
+	while (time_now < (start_time + BUTTON_SHUTDOWN_DURATION_US)) {
 		update_battery_data();
 		ssd1306::updateStatus(_voltage_mv, _current_ma, _soc);
 		update_led_status();
 
-		counter++;
 		up_udelay(50000); // 100ms
 
 		bool button_held = !stm32_gpioread(GPIO_BUTTON);
 
 		if (button_held) {
-			printf("Keep holding that button big guy...\n");
-			button_held_count++;
+			printf("Keep holding that button big guy\n");
+			button_still_held++;
 		}
+
+		times_thru_loop++;
+		time_now = hrt_absolute_time();
 	}
 
-	if (button_held_count != counter) {
+	unsigned percent_held = (100 * button_still_held) / times_thru_loop;
+
+	if (percent_held >= 90) {
+		// Good to go
+		printf("Congrats you held the button for %d percent of the time\n", percent_held);
+		return;
+	} else {
 		printf("Button not held, powering off\n");
 
-		// Drive the power enable low to power off system
-		counter = 0;
+		ssd1306::displayOff();
+		stm32_gpiowrite(GPIO_LED_5, true);
+		stm32_gpiowrite(GPIO_LED_4, true);
+		stm32_gpiowrite(GPIO_LED_3, true);
+		stm32_gpiowrite(GPIO_LED_2, true);
+		stm32_gpiowrite(GPIO_LED_1, true);
 		stm32_gpiowrite(GPIO_PWR_EN, false);
-		up_udelay(1000000); // 1s
+		while(1){;};
 	}
 }
 

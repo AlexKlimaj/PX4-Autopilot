@@ -104,6 +104,14 @@ int init()
 	return PX4_OK;
 }
 
+int clean_up()
+{
+	delete[] _buffer;
+	delete _interface;
+
+	return OK;
+}
+
 void updateStatus(float v, float i, float soc)
 {
 	clear();

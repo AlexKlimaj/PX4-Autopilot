@@ -127,6 +127,8 @@ void sendCommand(uint8_t command);
 void sendData(uint8_t* data, size_t size);
 
 int init();
+int clean_up();
+
 void sendInitCommands();
 void resetDisplay(void);
 
