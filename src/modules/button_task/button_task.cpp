@@ -31,16 +31,6 @@
  *
  ****************************************************************************/
 
-/**
- * @file sensors.cpp
- *
- * @author Lorenz Meier <lorenz@px4.io>
- * @author Julian Oes <julian@oes.ch>
- * @author Thomas Gubler <thomas@px4.io>
- * @author Anton Babushkin <anton@px4.io>
- * @author Beat Küng <beat-kueng@gmx.net>
- */
-
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/module.h>
 #include <drivers/drv_hrt.h>
@@ -60,7 +50,6 @@ static constexpr uint64_t BUTTON_SHUTDOWN_DURATION_US = 3000000ul;
 using namespace time_literals;
 
 static bool button_pressed = false;
-
 
 class ButtonTask : public ModuleBase<ButtonTask>, public px4::ScheduledWorkItem
 {
@@ -160,15 +149,12 @@ ButtonTask::Run()
 		uint64_t elapsed = time_now - start_time;
 		PX4_INFO("button held: %d", (int)elapsed);
 
-		// Pulse the LEDs
 		strobeLEDs();
 
 		if ((elapsed > BUTTON_SHUTDOWN_DURATION_US) && (data.current_a < BQ40Z80_SHUTDOWN_CURRENT_LIMIT_A)) {
 
-			// TODO: emit shutdown message
 			PX4_INFO("Time to shut down");
 
-			// Time to shutdown
 			px4_arch_gpiosetevent(GPIO_BUTTON, false, true, false, &ButtonTask::isr_callback, this);
 
 			shutdown_s shutdown = {};
@@ -350,7 +336,6 @@ ButtonTask::init()
 {
 	ScheduleOnInterval(100_ms);
 
-	// Enable button interrupts for shutdown
 	px4_arch_configgpio(GPIO_BUTTON);
 	px4_arch_gpiosetevent(GPIO_BUTTON, false, true, true, &ButtonTask::isr_callback, this);
 
