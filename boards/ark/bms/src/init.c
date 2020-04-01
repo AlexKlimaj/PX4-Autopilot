@@ -92,7 +92,8 @@ __BEGIN_DECLS
 extern void led_init(void);
 extern void led_on(int led);
 extern void led_off(int led);
-extern void bq40z80_startup_init(void);
+extern void display_bq_startup_init(void);
+extern void check_button_and_update_display(void);
 __END_DECLS
 
 /************************************************************************************
@@ -268,15 +269,12 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 
 #endif
 
-	// JAKE: I need to initialize the display and the BQ here.
-	bq40z80_startup_init();
-	// JAKE: I can put code here to check if button is being held
-	//
-		// I will loop and display readings from the BQ.
-	//
+	// Initialize the display and the BQ
+	display_bq_startup_init();
+
 
 	// Jake Button check is a success, start entire system
-
+	check_button_and_update_display();
 
 
 	return OK;

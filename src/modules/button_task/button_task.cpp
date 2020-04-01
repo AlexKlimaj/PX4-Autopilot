@@ -128,12 +128,12 @@ ButtonTask::Run()
 		button_pressed = false;
 	}
 
-	bool state = stm32_gpioread(GPIO_BUTTON);
+	bool button_held = !stm32_gpioread(GPIO_BUTTON);
 
 	auto start_time = hrt_absolute_time();
 	auto time_now = start_time;
 
-	while (!state) {
+	while (button_held) {
 		time_now = hrt_absolute_time();
 
 		uint64_t elapsed = time_now - start_time;
@@ -154,7 +154,7 @@ ButtonTask::Run()
 		}
 
 		usleep(100000); // 10hz
-		state = stm32_gpioread(GPIO_BUTTON);
+		button_held = !stm32_gpioread(GPIO_BUTTON);
 	}
 
 	_led_pulse_state = 0;

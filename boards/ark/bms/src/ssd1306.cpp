@@ -33,26 +33,47 @@
 
 #include "ssd1306.h"
 
-#define SPI_FREQ_20MHZ 2000000ul
-
-using namespace time_literals;
-
-SSD1306::SSD1306(I2CSPIBusOption bus_option, const int bus, SSD1306_SPI* interface)
-	: I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(_interface->get_device_id()), bus_option, bus)
-	, _interface(interface)
+namespace ssd1306
 {
-	// Anything to do?
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///// SPI IMPL /////////////////////////////////////////////////////////////////////////////////////////////////////
+SSD1306_SPI::SSD1306_SPI(uint8_t bus, uint32_t device, int bus_frequency, spi_mode_e spi_mode)
+	: SPI("SSD1306_SPI", nullptr, bus, device, spi_mode, bus_frequency)
+{
 }
 
-SSD1306::~SSD1306()
+int SSD1306_SPI::init()
 {
-	if (_interface)
-	{
-		delete _interface;
-	}
+	return SPI::init();
 }
 
-int SSD1306::init()
+int SSD1306_SPI::probe()
+{
+	printf("HES PROBING ME\n");
+	return PX4_OK;
+}
+
+void SSD1306_SPI::writeBytes(uint8_t* data, size_t size)
+{
+	transfer(data, nullptr, size);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///// SSD1306 IMPL /////////////////////////////////////////////////////////////////////////////////////////////////////
+SSD1306_SPI* _interface {};
+
+uint8_t* _buffer {};
+
+OLEDDISPLAY_GEOMETRY _geometry = GEOMETRY_128_32;
+OLEDDISPLAY_TEXT_ALIGNMENT _textAlignment = TEXT_ALIGN_LEFT;
+
+static constexpr uint16_t DISPLAY_WIDTH = 128;
+static constexpr uint16_t DISPLAY_HEIGHT = 32;
+static constexpr uint16_t DISPLAY_BUFFER_SIZE = DISPLAY_WIDTH * DISPLAY_HEIGHT / 8;
+
+const uint8_t* _fontData = ArialMT_Plain_16; // pointer to the font data structure
+
+FontTableLookupFunction _fontTableLookupFunction = DefaultFontTableLookup;
+int init()
 {
 	if (!_buffer)
 	{
@@ -60,58 +81,54 @@ int SSD1306::init()
 
 		if(!_buffer)
 		{
-			PX4_INFO("Not enough memory to create display");
+			printf("Not enough memory to create display\n");
 			return PX4_ERROR;
 		}
 	}
 
+	// Now create SPI interface
+	_interface = new SSD1306_SPI(1, 268435567, 2000000); // add args
+	_interface->init();
+	up_udelay(10000);
+
 	// First reset the device
 	stm32_gpiowrite(GPIO_SPI1_OLED_RST, false);
-	usleep(10000);
+	up_udelay(10000);
 	stm32_gpiowrite(GPIO_SPI1_OLED_RST, true);
 
 	sendInitCommands();
 	resetDisplay();
 
-	usleep(10000);
+	up_udelay(10000);
 
 	return PX4_OK;
 }
 
-void SSD1306::RunImpl()
-{
-	battery_status_s battery;
-
-	if (_battery_sub.update(&battery)) {
-		updateStatus(battery);
-	}
-}
-
-void SSD1306::updateStatus(const battery_status_s& data)
+void updateStatus(float v, float i, float soc)
 {
 	clear();
 
 	char text_temp[20] = {};
 	const char* str;
 
-	snprintf(text_temp, sizeof(text_temp), "mV: %d", (int)(data.voltage_v*1000));
+	snprintf(text_temp, sizeof(text_temp), "mV: %d", (int)(v*1000));
 	str = text_temp;
 	drawString(0, 0, str);
 
 	// TODO: verify we are properly handling negatives here.
-	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*1000));
+	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(i*1000));
 
 	str = text_temp;
 	drawString(0, 16, str);
 
-	snprintf(text_temp, sizeof(text_temp), "%d%%", (int)(data.remaining*100));
+	snprintf(text_temp, sizeof(text_temp), "%d%%", (int)(soc*100));
 	str = text_temp;
 	drawString(85, 0, str);
 
 	display();
 }
 
-void SSD1306::display(void)
+void display(void)
 {
 	sendCommand(COLUMNADDR);
 	sendCommand(0x0);
@@ -132,7 +149,7 @@ void SSD1306::display(void)
 	sendData(_buffer, DISPLAY_BUFFER_SIZE);
 }
 
-void SSD1306::sendInitCommands(void)
+void sendInitCommands(void)
 {
 	sendCommand(DISPLAYOFF);
 	sendCommand(SETDISPLAYCLOCKDIV);
@@ -180,7 +197,7 @@ void SSD1306::sendInitCommands(void)
 	sendCommand(DISPLAYON);
 }
 
-void SSD1306::drawString(int16_t xMove, int16_t yMove, const char* text)
+void drawString(int16_t xMove, int16_t yMove, const char* text)
 {
 	uint16_t lineHeight = pgm_read_byte(_fontData + HEIGHT_POS);
 
@@ -203,7 +220,7 @@ void SSD1306::drawString(int16_t xMove, int16_t yMove, const char* text)
 	drawStringInternal(xMove, yMove - yOffset, text, length, getStringWidth(text, length));
 }
 
-void SSD1306::drawStringInternal(int16_t xMove, int16_t yMove, const char* text, uint16_t textLength, uint16_t textWidth)
+void drawStringInternal(int16_t xMove, int16_t yMove, const char* text, uint16_t textLength, uint16_t textWidth)
 {
 	uint8_t textHeight       = pgm_read_byte(_fontData + HEIGHT_POS);
 	uint8_t firstChar        = pgm_read_byte(_fontData + FIRST_CHAR_POS);
@@ -267,7 +284,7 @@ void SSD1306::drawStringInternal(int16_t xMove, int16_t yMove, const char* text,
 	}
 }
 
-void SSD1306::drawInternal(int16_t xMove, int16_t yMove, int16_t width, int16_t height, const uint8_t *data, uint16_t offset, uint16_t bytesInData)
+void drawInternal(int16_t xMove, int16_t yMove, int16_t width, int16_t height, const uint8_t *data, uint16_t offset, uint16_t bytesInData)
 {
 	if (width < 0 || height < 0)
 	{
@@ -337,7 +354,7 @@ void SSD1306::drawInternal(int16_t xMove, int16_t yMove, int16_t width, int16_t 
 	}
 }
 
-uint16_t SSD1306::getStringWidth(const char* text, uint16_t length)
+uint16_t getStringWidth(const char* text, uint16_t length)
 {
 	uint16_t firstChar = pgm_read_byte(_fontData + FIRST_CHAR_POS);
 	uint16_t stringWidth = 0;
@@ -348,55 +365,55 @@ uint16_t SSD1306::getStringWidth(const char* text, uint16_t length)
 		stringWidth += pgm_read_byte(_fontData + JUMPTABLE_START + (text[length] - firstChar) * JUMPTABLE_BYTES + JUMPTABLE_WIDTH);
 		if (text[length] == 10)
 		{
-			maxWidth = math::max(maxWidth, stringWidth);
+			maxWidth = (maxWidth > stringWidth) ? maxWidth : stringWidth;
 			stringWidth = 0;
 		}
 	}
 
-	return math::max(maxWidth, stringWidth);
+	return (maxWidth > stringWidth) ? maxWidth : stringWidth;
 }
 
-void SSD1306::sendCommand(uint8_t command)
+void sendCommand(uint8_t command)
 {
 	stm32_gpiowrite(GPIO_SPI1_OLED_DC, false); // deassert data control line
 	_interface->writeBytes(&command, 1);
 }
 
-void SSD1306::sendData(uint8_t* data, size_t size)
+void sendData(uint8_t* data, size_t size)
 {
 	stm32_gpiowrite(GPIO_SPI1_OLED_DC, true); // assert data control line
 	_interface->writeBytes(data, size);
 }
 
-void SSD1306::resetDisplay(void)
+void resetDisplay(void)
 {
 	clear();
 	display();
 	flipScreenVertically(); // We've got to flip it for it to be correct for our use
 }
 
-void SSD1306::flipScreenVertically()
+void flipScreenVertically()
 {
 	sendCommand(SEGREMAP | 0x01);
 	sendCommand(COMSCANDEC); // Rotate screen 180 Deg
 }
 
-void SSD1306::displayOn(void)
+void displayOn(void)
 {
 	sendCommand(DISPLAYON);
 }
 
-void SSD1306::displayOff(void)
+void displayOff(void)
 {
 	sendCommand(DISPLAYOFF);
 }
 
-void SSD1306::clear(void)
+void clear(void)
 {
 	memset(_buffer, 0, DISPLAY_BUFFER_SIZE);
 }
 
-void SSD1306::setFontTableLookupFunction(FontTableLookupFunction function)
+void setFontTableLookupFunction(FontTableLookupFunction function)
 {
 	_fontTableLookupFunction = function;
 }
@@ -426,80 +443,4 @@ char DefaultFontTableLookup(const uint8_t ch)
 	return (uint8_t) 0; // otherwise: return zero, if character has to be ignored
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//  End of driver implementation details -- below is driver boilerplate
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-I2CSPIDriverBase *SSD1306::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-				      int runtime_instance)
-{
-	auto interface = new SSD1306_SPI(iterator.bus(), iterator.devid(), SPI_FREQ_20MHZ);
-
-	PX4_INFO("bus: %d", iterator.bus());
-	PX4_INFO("devid: %d", iterator.devid());
-
-
-	if (interface == nullptr) {
-		PX4_INFO("alloc failed");
-		return nullptr;
-	}
-
-	if (interface->init() != OK) {
-		delete interface;
-		PX4_INFO("no device on bus %i (devid 0x%x)", iterator.bus(), iterator.devid());
-		return nullptr;
-	}
-
-	SSD1306* instance = new SSD1306(iterator.configuredBusOption(), iterator.bus(), interface);
-
-	if (instance == nullptr) {
-		PX4_INFO("alloc failed");
-		return nullptr;
-	}
-
-	instance->init();
-
-	instance->ScheduleOnInterval(500_ms);
-
-	return instance;
-}
-
-extern "C" __EXPORT int ssd1306_main(int argc, char *argv[])
-{
-	using ThisDriver = SSD1306;
-	BusCLIArguments cli{false, true};
-	cli.default_spi_frequency = 20 * 1000 * 1000;
-
-	const char *verb = cli.parseDefaultArguments(argc, argv);
-	if (!verb) {
-		ThisDriver::print_usage();
-		return -1;
-	}
-
-	BusInstanceIterator iterator(MODULE_NAME, cli, DRV_DEVTYPE_SSD1306);
-
-	if (!strcmp(verb, "start")) {
-		return ThisDriver::module_start(cli, iterator);
-	}
-
-	ThisDriver::print_usage();
-	return -1;
-}
-
-void SSD1306::print_usage()
-{
-	PRINT_MODULE_DESCRIPTION(
-		R"DESCR_STR(
-### Description
-Driver for OLED display SSD1306.
-
-)DESCR_STR");
-
-	PRINT_MODULE_USAGE_NAME("ssd1306", "driver");
-
-	PRINT_MODULE_USAGE_COMMAND("start");
-
-	PRINT_MODULE_USAGE_COMMAND_DESCR("none", "doesn't exit");
-
-	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
-}
+} // end namespace ssd1306

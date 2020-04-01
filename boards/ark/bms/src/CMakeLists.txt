@@ -37,6 +37,7 @@ add_library(drivers_board
 	led.c
 	spi.cpp
 	usb.c
+	ssd1306.cpp
 	ark_startup.cpp
 )
 
