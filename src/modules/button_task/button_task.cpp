@@ -84,14 +84,15 @@ public:
 private:
 	void Run() override;
 
+	void toggleLEDs(bool toggle);
 	void updateLEDs(const battery_status_s& data);
-	void pulseLEDs(void);
+	void strobeLEDs(void);
 
 	uORB::PublicationMulti<shutdown_s> _shutdown_pub{ORB_ID(shutdown)};
 
 	uORB::Subscription _battery_sub{ORB_ID(battery_status)};
 
-	int _led_pulse_state = {};
+	int _led_strobe_state = {};
 };
 
 ButtonTask::ButtonTask() :
@@ -112,9 +113,24 @@ int ButtonTask::isr_callback(int irq, FAR void *context, void *arg)
 	return OK;
 }
 
+static bool first_pass = true;
 void
 ButtonTask::Run()
 {
+	if (first_pass) {
+		first_pass = false;
+
+		for (unsigned i = 0; i < 2; i++) {
+			toggleLEDs(true);
+			usleep(100000);
+			toggleLEDs(false);
+			usleep(100000);
+		}
+
+		toggleLEDs(true);
+		usleep(100000);
+	}
+
 	if (should_exit()) {
 		exit_and_cleanup();
 		return;
@@ -145,7 +161,7 @@ ButtonTask::Run()
 		PX4_INFO("button held: %d", (int)elapsed);
 
 		// Pulse the LEDs
-		pulseLEDs();
+		strobeLEDs();
 
 		if ((elapsed > BUTTON_SHUTDOWN_DURATION_US) && (data.current_a < BQ40Z80_SHUTDOWN_CURRENT_LIMIT_A)) {
 
@@ -172,7 +188,16 @@ ButtonTask::Run()
 		button_held = !stm32_gpioread(GPIO_BUTTON);
 	}
 
-	_led_pulse_state = 0;
+	_led_strobe_state = 0;
+}
+
+void ButtonTask::toggleLEDs(bool toggle)
+{
+	stm32_gpiowrite(GPIO_LED_5, toggle);
+	stm32_gpiowrite(GPIO_LED_4, toggle);
+	stm32_gpiowrite(GPIO_LED_3, toggle);
+	stm32_gpiowrite(GPIO_LED_2, toggle);
+	stm32_gpiowrite(GPIO_LED_1, toggle);
 }
 
 void ButtonTask::updateLEDs(const battery_status_s& data)
@@ -220,9 +245,9 @@ void ButtonTask::updateLEDs(const battery_status_s& data)
 	}
 }
 
-void ButtonTask::pulseLEDs(void)
+void ButtonTask::strobeLEDs(void)
 {
-	switch (_led_pulse_state)
+	switch (_led_strobe_state)
 	{
 		case 0:
 			stm32_gpiowrite(GPIO_LED_5, true);
@@ -289,10 +314,10 @@ void ButtonTask::pulseLEDs(void)
 			break;
 	}
 
-	_led_pulse_state++;
+	_led_strobe_state++;
 
-	if (_led_pulse_state == 8) {
-		_led_pulse_state = 0;
+	if (_led_strobe_state == 8) {
+		_led_strobe_state = 0;
 	}
 }
 
