@@ -125,6 +125,7 @@ set(msg_files
 	sensor_preflight.msg
 	sensor_selection.msg
 	servorail_status.msg
+	shutdown.msg
 	subsystem_info.msg
 	system_power.msg
 	task_stack_info.msg

@@ -85,6 +85,13 @@ void SSD1306::RunImpl()
 	if (_battery_sub.update(&battery)) {
 		updateStatus(battery);
 	}
+
+	shutdown_s shutdown;
+	if (_shutdown_sub.update(&shutdown)) {
+		PX4_INFO("SHUTTING DOWN NOW");
+		displayOff();
+		exit_and_cleanup();
+	}
 }
 
 void SSD1306::updateStatus(const battery_status_s& data)

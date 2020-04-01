@@ -41,6 +41,7 @@
 
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/battery_status.h>
+#include <uORB/topics/shutdown.h>
 
 #include "ssd1306_spi.h"
 #include "ssd1306_fonts.h"
@@ -149,6 +150,7 @@ private:
 	SSD1306_SPI* _interface {};
 
 	uORB::Subscription _battery_sub{ORB_ID(battery_status)};
+	uORB::Subscription _shutdown_sub{ORB_ID(shutdown)};
 
 	uint8_t* _buffer {};
 

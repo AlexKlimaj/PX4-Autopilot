@@ -46,8 +46,10 @@
 #include <drivers/drv_hrt.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 
+#include <uORB/PublicationMulti.hpp>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/battery_status.h>
+#include <uORB/topics/shutdown.h>
 
 #define BUTTON_DEBOUNCE_DURATION_US    1000
 #define BUTTON_SHORT_PRESS_DURATION_US 300000
@@ -58,6 +60,7 @@ static constexpr uint64_t BUTTON_SHUTDOWN_DURATION_US = 3000000ul;
 using namespace time_literals;
 
 static bool button_pressed = false;
+
 
 class ButtonTask : public ModuleBase<ButtonTask>, public px4::ScheduledWorkItem
 {
@@ -84,13 +87,15 @@ private:
 	void updateLEDs(const battery_status_s& data);
 	void pulseLEDs(void);
 
+	uORB::PublicationMulti<shutdown_s> _shutdown_pub{ORB_ID(shutdown)};
+
 	uORB::Subscription _battery_sub{ORB_ID(battery_status)};
 
 	int _led_pulse_state = {};
 };
 
 ButtonTask::ButtonTask() :
-	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::hp_default)
+	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::lp_default)
 {
 	// Anything to do?
 }
@@ -150,7 +155,17 @@ ButtonTask::Run()
 			// Time to shutdown
 			px4_arch_gpiosetevent(GPIO_BUTTON, false, true, false, &ButtonTask::isr_callback, this);
 
+			shutdown_s shutdown = {};
+			_shutdown_pub.publish(shutdown);
+
 			stm32_gpiowrite(GPIO_PWR_EN, false);
+			stm32_gpiowrite(GPIO_LED_5, true);
+			stm32_gpiowrite(GPIO_LED_4, true);
+			stm32_gpiowrite(GPIO_LED_3, true);
+			stm32_gpiowrite(GPIO_LED_2, true);
+			stm32_gpiowrite(GPIO_LED_1, true);
+
+			while(1){;};
 		}
 
 		usleep(100000); // 10hz
