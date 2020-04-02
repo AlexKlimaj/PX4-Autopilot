@@ -168,6 +168,7 @@ void BATT_SMBUS::RunImpl()
 	new_report.serial_number = _serial_number;
 	new_report.max_cell_voltage_delta = _max_cell_voltage_delta;
 	new_report.max_error = _max_error;
+	new_report.scale = _scale_factor;
 	new_report.state_of_health = _state_of_health;
 	new_report.cell_count = _cell_count;
 	new_report.voltage_cell_v[0] = _cell_voltages[0];
