@@ -127,6 +127,17 @@
 #define BQ40Z80_DASTATUS1_PACK_VOLTAGE_MSB              11
 #define BQ40Z80_DASTATUS1_PACK_VOLTAGE_LSB              10
 
+#define BQ40Z80_FET_EN_SHIFT 4
+#define BQ40Z80_FET_EN_MASK (1 << BQ40Z80_FET_EN_SHIFT)
+
+// Configurable Settings
+#define BQ40Z80_SHUTDOWN_CURRENT_LIMIT_A 0.5f // Current charging or discharging must be less than this to allow turning off the FETs
+#define BQ40Z80_PROTECTION_DISBABLE_CURRENT_THRESHOLD_A -0.4f // Discharge currents above this value will disable protections
+#define BQ40Z80_ENABLED_PROTECTIONS_A_VAL 0xFF
+#define BQ40Z80_ENABLED_PROTECTIONS_B_VAL 0x7F
+#define BQ40Z80_ENABLED_PROTECTIONS_C_VAL 0x85
+#define BQ40Z80_ENABLED_PROTECTIONS_D_VAL 0x0F
+
 class BATT_SMBUS : public I2CSPIDriver<BATT_SMBUS>
 {
 public:
@@ -143,6 +154,21 @@ public:
 	void RunImpl();
 
 	void custom_method(const BusCLIArguments &cli) override;
+
+	/**
+	 * @brief Configures the output FETS.
+	 * @param enable Whether to enable or disable.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int configure_output_FETs(bool enable);
+
+	/**
+	 * @brief Configures the the protection settings.
+	 * @param enable Whether to enable or disable.
+	 * @param read_only True to only read state of protections.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int configure_protections(bool enable, bool read_only);
 
 	/**
 	 * @brief Writes data to flash.
@@ -298,6 +324,12 @@ private:
 
 	/** @param _lifetime_max_delta_cell_voltage Max lifetime delta of the battery cells */
 	float _lifetime_max_delta_cell_voltage{0.f};
+
+	/** @param _output_fets_enabled State of the output FETS */
+	bool _output_fets_enabled{};
+
+	/** @param _protections_enabled State of the protections */
+	bool _protections_enabled{};
 
 	/** @param _cell_undervoltage_protection_status */
 	enum protection_status {

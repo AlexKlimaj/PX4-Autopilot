@@ -196,6 +196,134 @@ void BATT_SMBUS::resume()
 	ScheduleOnInterval(BATT_SMBUS_MEASUREMENT_INTERVAL_US);
 }
 
+
+int BATT_SMBUS::configure_output_FETs(bool enable)
+{
+	uint16_t status;
+	int result = manufacturer_read(BQ40Z80_MAC_BA_MANUFACTURING_STATUS, &status, 2);
+
+	if (result != OK)
+	{
+		PX4_ERR("[bq40z80] reading FET status failed");
+		return result;
+	}
+
+	_output_fets_enabled = status & BQ40Z80_FET_EN_MASK;
+
+	if (_output_fets_enabled)
+	{
+		PX4_INFO("[bq40z80] FETs are enabled");
+	}
+	else
+	{
+		PX4_INFO("[bq40z80] FETs are disabled");
+	}
+
+	// They're off, let's turn them on
+	if (_output_fets_enabled != enable)
+	{
+		result |= manufacturer_write(BQ40Z80_MAC_BA_FET_EN, nullptr, 0);
+
+		if (result != OK)
+		{
+			if (_output_fets_enabled)
+			{
+				PX4_ERR("[bq40z80] Disabling FETs failed");
+			}
+			else
+			{
+				PX4_ERR("[bq40z80] Enabling FETs failed");
+			}
+
+			return result;
+		}
+
+		if (enable)
+		{
+			PX4_INFO("[bq40z80] FETs successfully enabled");
+		}
+		else
+		{
+			PX4_INFO("[bq40z80] FETs successfully disabled");
+		}
+
+		_output_fets_enabled = enable;
+	}
+
+	return result;
+}
+
+
+int BATT_SMBUS::configure_protections(bool enable, bool read_only)
+{
+	int result;
+	bool all_protections_disabled = true;
+
+	uint8_t enabled_protections[4] = {};
+
+	for (size_t i = 0; i < 10; i++) {
+		result = manufacturer_read(BQ40Z80_ENABLED_PROTECTIONS_A_ADDR, enabled_protections, sizeof(enabled_protections));
+
+		if (result == OK) {
+			break;
+		}
+		if (i == 9) {
+			PX4_ERR("[bq40z80] get ENABLED_PROTECTIONS failed, returning");
+			return result;
+		}
+		PX4_ERR("[bq40z80] get ENABLED_PROTECTIONS failed, retrying");
+	}
+
+	if ((enabled_protections[0] != BQ40Z80_ENABLED_PROTECTIONS_A_VAL) || (enabled_protections[1] != BQ40Z80_ENABLED_PROTECTIONS_B_VAL) || (enabled_protections[2] != BQ40Z80_ENABLED_PROTECTIONS_C_VAL) || (enabled_protections[3] != BQ40Z80_ENABLED_PROTECTIONS_D_VAL)){
+		// Check to make sure all protections are disabled
+		for (size_t i = 0; i < sizeof(enabled_protections); i++) {
+			if (enabled_protections[i] != 0) {
+				all_protections_disabled = false;
+			}
+		}
+		if (all_protections_disabled == true) {
+			_protections_enabled = false;
+		}
+	}
+	else {
+		_protections_enabled = true;
+	}
+
+	if (read_only == true) {
+		return result;
+	}
+
+	if ((enable == true) && (_protections_enabled != true)) {
+		enabled_protections[0] = (uint8_t)BQ40Z80_ENABLED_PROTECTIONS_A_VAL;
+		enabled_protections[1] = (uint8_t)BQ40Z80_ENABLED_PROTECTIONS_B_VAL;
+		enabled_protections[2] = (uint8_t)BQ40Z80_ENABLED_PROTECTIONS_C_VAL;
+		enabled_protections[3] = (uint8_t)BQ40Z80_ENABLED_PROTECTIONS_D_VAL;
+		result = manufacturer_write(BQ40Z80_ENABLED_PROTECTIONS_A_ADDR, enabled_protections, 4);
+		if (result != OK) {
+			PX4_ERR("[bq40z80] ENABLE_PROTECTIONS failed!");
+			return result;
+		}
+		else {
+			PX4_INFO("[bq40z80] Enabling Protections");
+		}
+	}
+	else if ((enable == false) && (_protections_enabled != false)){
+		for (size_t i = 0; i < sizeof(enabled_protections); i++) {
+			enabled_protections[i] = 0;
+		}
+		result |= manufacturer_write(BQ40Z80_ENABLED_PROTECTIONS_A_ADDR, enabled_protections, 4);
+		if (result != OK) {
+			PX4_ERR("[bq40z80] DISABLE_PROTECTIONS failed!");
+			return result;
+		}
+		else {
+			PX4_INFO("[bq40z80] Disabling Protections");
+		}
+	}
+
+	return result;
+}
+
 int BATT_SMBUS::get_voltages()
 {
 	// Temporary variable for storing SMBUS reads.
