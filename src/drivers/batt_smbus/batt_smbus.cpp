@@ -121,10 +121,6 @@ void BATT_SMBUS::RunImpl()
 
 	new_report.average_current_a = average_current * _scale_factor;
 
-	// If current is high, turn under voltage protection off. This is neccessary to prevent
-	// a battery from cutting off while flying with high current near the end of the packs capacity.
-	//set_undervoltage_protection(average_current);
-
 	// Read run time to empty (minutes).
 	ret |= _interface->read_word(BATT_SMBUS_RUN_TIME_TO_EMPTY, result);
 	new_report.run_time_to_empty = result;
@@ -183,6 +179,31 @@ void BATT_SMBUS::RunImpl()
 		orb_publish(ORB_ID(battery_status), _batt_topic, &new_report);
 
 		_last_report = new_report;
+	}
+
+	// Set protection state
+	if ((new_report.current_a > BQ40Z80_PROTECTION_DISBABLE_CURRENT_THRESHOLD_A) && (_protections_enabled != false)) {
+		configure_protections(false, false);
+	}
+	else if ((new_report.current_a < BQ40Z80_PROTECTION_DISBABLE_CURRENT_THRESHOLD_A) && (_protections_enabled != true)) {
+		configure_protections(true, false);
+	}
+
+	shutdown_s data;
+	bool shutdown_update = _shutdown_sub.update(&data);
+
+	if (shutdown_update) {
+		// Check current before disabling FETs
+		if (new_report.current_a < BQ40Z80_SHUTDOWN_CURRENT_LIMIT_A) {
+			configure_output_FETs(false);
+			usleep(250000);
+			configure_protections(true, false);
+
+			for (;;)
+			{
+				usleep(250000);
+			}
+		}
 	}
 }
 
@@ -473,15 +494,18 @@ int BATT_SMBUS::get_startup_info()
 		px4_usleep(200000);
 
 		if (lifetime_read_block_one() == PX4_OK) {
-			if (_lifetime_max_delta_cell_voltage > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
-				PX4_WARN("Battery Damaged Will Not Fly. Lifetime max voltage difference: %4.2f",
-					 (double)_lifetime_max_delta_cell_voltage);
-			}
+			// if (_lifetime_max_delta_cell_voltage > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
+			// 	PX4_WARN("Battery Damaged Will Not Fly. Lifetime max voltage difference: %4.2f",
+			// 		 (double)_lifetime_max_delta_cell_voltage);
+			// }
 		}
 
 	} else {
 		PX4_WARN("Failed to flush lifetime data");
 	}
+
+	// Enable the FETs
+	result |= configure_output_FETs(true);
 
 	return result;
 }

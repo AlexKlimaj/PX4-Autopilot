@@ -50,7 +50,9 @@
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/i2c_spi_buses.h>
+#include <uORB/Subscription.hpp>
 #include <uORB/topics/battery_status.h>
+#include <uORB/topics/shutdown.h>
 
 #include <board_config.h>
 
@@ -132,7 +134,7 @@
 
 // Configurable Settings
 #define BQ40Z80_SHUTDOWN_CURRENT_LIMIT_A 0.5f // Current charging or discharging must be less than this to allow turning off the FETs
-#define BQ40Z80_PROTECTION_DISBABLE_CURRENT_THRESHOLD_A -0.4f // Discharge currents above this value will disable protections
+#define BQ40Z80_PROTECTION_DISBABLE_CURRENT_THRESHOLD_A 0.4f // Discharge currents above this value will disable protections
 #define BQ40Z80_ENABLED_PROTECTIONS_A_VAL 0xFF
 #define BQ40Z80_ENABLED_PROTECTIONS_B_VAL 0x7F
 #define BQ40Z80_ENABLED_PROTECTIONS_C_VAL 0x85
@@ -269,6 +271,8 @@ private:
 	SMBus *_interface;
 
 	perf_counter_t _cycle{perf_alloc(PC_ELAPSED, "batt_smbus_cycle")};
+
+	uORB::Subscription _shutdown_sub{ORB_ID(shutdown)};
 
 	float _cell_voltages[6] {};
 

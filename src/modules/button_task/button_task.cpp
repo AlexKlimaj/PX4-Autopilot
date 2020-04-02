@@ -167,6 +167,7 @@ ButtonTask::Run()
 			stm32_gpiowrite(GPIO_LED_2, true);
 			stm32_gpiowrite(GPIO_LED_1, true);
 
+			// TODO: Check if actually shut down. If not, need to keep running and assume we're in parallel with another battery or connected to a charger.
 			while(1){;};
 		}
 
