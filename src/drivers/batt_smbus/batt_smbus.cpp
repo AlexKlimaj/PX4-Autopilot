@@ -196,12 +196,12 @@ void BATT_SMBUS::RunImpl()
 		// Check current before disabling FETs
 		if (new_report.current_a < BQ40Z80_SHUTDOWN_CURRENT_LIMIT_A) {
 			configure_output_FETs(false);
-			usleep(250000);
+			px4_usleep(250000);
 			configure_protections(true, false);
 
 			for (;;)
 			{
-				usleep(250000);
+				px4_usleep(250000);
 			}
 		}
 	}
@@ -284,6 +284,7 @@ int BATT_SMBUS::configure_protections(bool enable, bool read_only)
 
 	for (size_t i = 0; i < 10; i++) {
 		result = manufacturer_read(BQ40Z80_ENABLED_PROTECTIONS_A_ADDR, enabled_protections, sizeof(enabled_protections));
+		px4_usleep(50000);
 
 		if (result == OK) {
 			break;

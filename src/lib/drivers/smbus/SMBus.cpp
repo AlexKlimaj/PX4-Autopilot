@@ -142,6 +142,7 @@ int SMBus::block_write(const uint8_t cmd_code, void *data, uint8_t byte_count, b
 	// If block_write fails, try up to 10 times.
 	while (i < 10 && ((result = transfer((uint8_t *)buf, byte_count + 2, nullptr, 0)) != PX4_OK)) {
 		i++;
+		usleep(50000);
 	}
 
 	if (i == 10 || result) {
