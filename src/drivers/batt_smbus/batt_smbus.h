@@ -66,8 +66,8 @@
 
 #define BATT_SMBUS_CURRENT                              0x0A            ///< current register
 #define BATT_SMBUS_AVERAGE_CURRENT                      0x0B            ///< average current register
-#define BATT_SMBUS_MAX_ERROR							0x0C			///< max error
-#define BATT_SMBUS_RELATIVE_SOC							0x0D			///< Relative State Of Charge
+#define BATT_SMBUS_MAX_ERROR				0x0C		///< max error
+#define BATT_SMBUS_RELATIVE_SOC				0x0D		///< Relative State Of Charge
 #define BATT_SMBUS_TEMP                                 0x08            ///< temperature register
 #define BATT_SMBUS_TEMP                                 0x08            ///< temperature register
 #define BATT_SMBUS_VOLTAGE                              0x09            ///< voltage register
@@ -87,10 +87,9 @@
 #define BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS            0x44
 #define BATT_SMBUS_STATE_OF_HEALTH			0x4F		///< State of Health. The SOH information of the battery in percentage of Design Capacity
 #define BATT_SMBUS_SECURITY_KEYS                        0x0035
-#define BATT_SMBUS_CELL_1_VOLTAGE                       0x3F
-#define BATT_SMBUS_CELL_2_VOLTAGE                       0x3E
-#define BATT_SMBUS_CELL_3_VOLTAGE                       0x3D
-#define BATT_SMBUS_CELL_4_VOLTAGE                       0x3C
+#define BATT_SMBUS_CELL_4_VOLTAGE                       0x3F
+#define BATT_SMBUS_CELL_5_VOLTAGE                       0x3E
+#define BATT_SMBUS_CELL_6_VOLTAGE                       0x3D
 #define BATT_SMBUS_LIFETIME_FLUSH                       0x002E
 #define BATT_SMBUS_LIFETIME_BLOCK_ONE                   0x0060
 #define BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS        0x4938
@@ -98,6 +97,35 @@
 
 #define BATT_SMBUS_ENABLED_PROTECTIONS_A_DEFAULT        0xcf
 #define BATT_SMBUS_ENABLED_PROTECTIONS_A_CUV_DISABLED   0xce
+
+// Dataflash addresses
+#define BQ40Z80_SCALE_FACTOR_ADDR                       0x4AE8 ///< Address at which the Scale Factor is Stored. Accessed with MAC block read.
+#define BQ40Z80_ENABLED_PROTECTIONS_A_ADDR              0x4BBE
+#define BQ40Z80_ENABLED_PROTECTIONS_B_ADDR 	        0x4BBF
+#define BQ40Z80_ENABLED_PROTECTIONS_C_ADDR              0x4BC0
+#define BQ40Z80_ENABLED_PROTECTIONS_D_ADDR              0x4BC1
+
+// Block Access commands
+#define MAC_BA_DATA_BUFFER_SIZE                         32 // MAC buffer size
+#define BQ40Z80_MAC_BA_HW_VER                           0x0003 ///<
+#define BQ40Z80_MAC_BA_FET_EN                           0x0022 ///< This command disables/enables control of the CHG, DSG, and PCHG FET by the firmware
+#define BQ40Z80_MAC_BA_DASTATUS1                        0x0071 ///< returns the cell voltages, pack voltage, bat voltage, cell currents, cell powers, power, and average power
+#define BQ40Z80_MAC_BA_DASTATUS2                        0x0072 ///< returns the internal temperature sensor, TS1, TS2, TS3, TS4, Cell Temp, and FET Temp
+#define BQ40Z80_MAC_BA_MANUFACTURING_STATUS             0x0057 ///< returns the ManufacturingStatus() flags on ManufacturerBlockAccess() or ManufacturerData().
+
+// DASTATUS1 Info. See Page 130 of the BQ40Z80 Technical Reference Manual.
+#define BQ40Z80_DASTATUS1_CELL1_VOLTAGE_MSB             1
+#define BQ40Z80_DASTATUS1_CELL1_VOLTAGE_LSB             0
+#define BQ40Z80_DASTATUS1_CELL2_VOLTAGE_MSB             3
+#define BQ40Z80_DASTATUS1_CELL2_VOLTAGE_LSB             2
+#define BQ40Z80_DASTATUS1_CELL3_VOLTAGE_MSB             5
+#define BQ40Z80_DASTATUS1_CELL3_VOLTAGE_LSB             4
+#define BQ40Z80_DASTATUS1_CELL4_VOLTAGE_MSB             7
+#define BQ40Z80_DASTATUS1_CELL4_VOLTAGE_LSB             6
+#define BQ40Z80_DASTATUS1_BAT_VOLTAGE_MSB               9
+#define BQ40Z80_DASTATUS1_BAT_VOLTAGE_LSB               8
+#define BQ40Z80_DASTATUS1_PACK_VOLTAGE_MSB              11
+#define BQ40Z80_DASTATUS1_PACK_VOLTAGE_LSB              10
 
 class BATT_SMBUS : public I2CSPIDriver<BATT_SMBUS>
 {
@@ -115,14 +143,6 @@ public:
 	void RunImpl();
 
 	void custom_method(const BusCLIArguments &cli) override;
-
-	/**
-	 * @brief Reads data from flash.
-	 * @param address The address to start the read from.
-	 * @param data The returned data.
-	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
-	 */
-	int dataflash_read(uint16_t &address, void *data, const unsigned length);
 
 	/**
 	 * @brief Writes data to flash.
@@ -206,12 +226,13 @@ public:
 	 * @brief Reads the cell voltages.
 	 * @return Returns PX4_OK on success or associated read error code on failure.
 	 */
-	int get_cell_voltages();
+	int get_voltages();
 
 	/**
-	 * @brief Enables or disables the cell under voltage protection emergency shut off.
+	 * @brief Reads the scale factor from teh BQ40Z80.
+	 * @return Returns PX4_OK on success or associated read error code on failure.
 	 */
-	void set_undervoltage_protection(float average_current);
+	int get_scale_factor();
 
 	void suspend();
 
@@ -223,11 +244,15 @@ private:
 
 	perf_counter_t _cycle{perf_alloc(PC_ELAPSED, "batt_smbus_cycle")};
 
-	float _cell_voltages[4] {};
+	float _cell_voltages[6] {};
 
 	float _max_cell_voltage_delta{0};
 
 	float _min_cell_voltage{0};
+
+	float _pack_voltage{0};
+
+	float _bat_voltage{0};
 
 	/** @param _last_report Last published report, used for test(). */
 	battery_status_s _last_report{};
@@ -247,8 +272,17 @@ private:
 	/** @param _cycle_count The number of cycles the battery has experienced. */
 	uint16_t _cycle_count{0};
 
+	/** @param _max_error Expected margin of error, in %, in the state-of-charge calculation with a range of 1 to 100%. */
+	uint16_t _max_error{0};
+
+	/** @param _scale_factor Scale factor on teh BZ40Z80 */
+	uint8_t _scale_factor{0};
+
 	/** @param _serial_number Serial number register. */
 	uint16_t _serial_number{0};
+
+	/** @param _state_of_health State of health in %. */
+	uint16_t _state_of_health{0};
 
 	/** @param _crit_thr Critical battery threshold param. */
 	float _crit_thr{0.f};
@@ -258,9 +292,6 @@ private:
 
 	/** @param _low_thr Low battery threshold param. */
 	float _low_thr{0.f};
-
-	/** @parama _c_mult Capacity/current multiplier param  */
-	float _c_mult{0.f};
 
 	/** @param _manufacturer_name Name of the battery manufacturer. */
 	char *_manufacturer_name{nullptr};

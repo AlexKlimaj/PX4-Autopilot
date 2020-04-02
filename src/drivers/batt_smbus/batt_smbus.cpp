@@ -89,7 +89,6 @@ void BATT_SMBUS::RunImpl()
 	// Read data from sensor.
 	battery_status_s new_report = {};
 
-	// TODO(hyonlim): this driver should support multiple SMBUS going forward.
 	new_report.id = 1;
 
 	// Set time of reading.
@@ -102,28 +101,29 @@ void BATT_SMBUS::RunImpl()
 
 	int ret = _interface->read_word(BATT_SMBUS_VOLTAGE, result);
 
-	ret |= get_cell_voltages();
-
 	// Convert millivolts to volts.
 	new_report.voltage_v = ((float)result) / 1000.0f;
 	new_report.voltage_filtered_v = new_report.voltage_v;
 
+	// Get cell voltages, pack voltage, and battery voltage.
+	ret |= get_voltages();
+
 	// Read current.
 	ret |= _interface->read_word(BATT_SMBUS_CURRENT, result);
 
-	new_report.current_a = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f) * _c_mult;
+	new_report.current_a = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f) * _scale_factor;
 	new_report.current_filtered_a = new_report.current_a;
 
 	// Read average current.
 	ret |= _interface->read_word(BATT_SMBUS_AVERAGE_CURRENT, result);
 
-	float average_current = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f) * _c_mult;
+	float average_current = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f) * _scale_factor;
 
-	new_report.average_current_a = average_current;
+	new_report.average_current_a = average_current * _scale_factor;
 
 	// If current is high, turn under voltage protection off. This is neccessary to prevent
 	// a battery from cutting off while flying with high current near the end of the packs capacity.
-	set_undervoltage_protection(average_current);
+	//set_undervoltage_protection(average_current);
 
 	// Read run time to empty (minutes).
 	ret |= _interface->read_word(BATT_SMBUS_RUN_TIME_TO_EMPTY, result);
@@ -137,7 +137,7 @@ void BATT_SMBUS::RunImpl()
 	ret |= _interface->read_word(BATT_SMBUS_REMAINING_CAPACITY, result);
 
 	// Calculate total discharged amount in mah.
-	new_report.discharged_mah = _batt_capacity - (float)result * _c_mult;
+	new_report.discharged_mah = _batt_startup_capacity - (float)result * _scale_factor;
 
 	// Read Relative SOC.
 	ret |= _interface->read_word(BATT_SMBUS_RELATIVE_SOC, result);
@@ -145,20 +145,8 @@ void BATT_SMBUS::RunImpl()
 	// Normalize 0.0 to 1.0
 	new_report.remaining = (float)result / 100.0f;
 
-	// Read SOH
-	// TODO(hyonlim): this value can be used for battery_status.warning mavlink message.
-	ret |= _interface->read_word(BATT_SMBUS_STATE_OF_HEALTH, result);
-	new_report.state_of_health = result;
-
-	// Read Max Error
-	ret |= _interface->read_word(BATT_SMBUS_MAX_ERROR, result);
-	new_report.max_error = result;
-
-	// Check if max lifetime voltage delta is greater than allowed.
-	if (_lifetime_max_delta_cell_voltage > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
-		new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
-
-	} else if (new_report.remaining > _low_thr) {
+	// Determine warning
+	if (new_report.remaining > _low_thr) {
 		new_report.warning = battery_status_s::BATTERY_WARNING_NONE;
 
 	} else if (new_report.remaining > _crit_thr) {
@@ -179,11 +167,15 @@ void BATT_SMBUS::RunImpl()
 	new_report.cycle_count = _cycle_count;
 	new_report.serial_number = _serial_number;
 	new_report.max_cell_voltage_delta = _max_cell_voltage_delta;
+	new_report.max_error = _max_error;
+	new_report.state_of_health = _state_of_health;
 	new_report.cell_count = _cell_count;
 	new_report.voltage_cell_v[0] = _cell_voltages[0];
 	new_report.voltage_cell_v[1] = _cell_voltages[1];
 	new_report.voltage_cell_v[2] = _cell_voltages[2];
 	new_report.voltage_cell_v[3] = _cell_voltages[3];
+	new_report.voltage_cell_v[4] = _cell_voltages[4];
+	new_report.voltage_cell_v[5] = _cell_voltages[5];
 
 	// Only publish if no errors.
 	if (!ret) {
@@ -203,26 +195,36 @@ void BATT_SMBUS::resume()
 	ScheduleOnInterval(BATT_SMBUS_MEASUREMENT_INTERVAL_US);
 }
 
-int BATT_SMBUS::get_cell_voltages()
+int BATT_SMBUS::get_voltages()
 {
 	// Temporary variable for storing SMBUS reads.
-	uint16_t result = 0;
+	uint8_t status[MAC_BA_DATA_BUFFER_SIZE];
+	int result = manufacturer_read(BQ40Z80_MAC_BA_DASTATUS1, &status, MAC_BA_DATA_BUFFER_SIZE);
 
-	int ret = _interface->read_word(BATT_SMBUS_CELL_1_VOLTAGE, result);
-	// Convert millivolts to volts.
-	_cell_voltages[0] = ((float)result) / 1000.0f;
+	if (result != OK)
+	{
+		PX4_ERR("[bq40z80] reading DAStatus1 failed");
+		return 0;
+	}
 
-	ret = _interface->read_word(BATT_SMBUS_CELL_2_VOLTAGE, result);
-	// Convert millivolts to volts.
-	_cell_voltages[1] = ((float)result) / 1000.0f;
+	_pack_voltage = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_PACK_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_PACK_VOLTAGE_LSB])/1000.0f;
+	_bat_voltage = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_BAT_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_BAT_VOLTAGE_LSB])/1000.0f;
 
-	ret = _interface->read_word(BATT_SMBUS_CELL_3_VOLTAGE, result);
 	// Convert millivolts to volts.
-	_cell_voltages[2] = ((float)result) / 1000.0f;
+	_cell_voltages[0] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL1_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL1_VOLTAGE_LSB])/1000.0f;
+	_cell_voltages[1] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL2_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL2_VOLTAGE_LSB])/1000.0f;
+	_cell_voltages[2] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL3_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL3_VOLTAGE_LSB])/1000.0f;
+	_cell_voltages[3] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL4_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL4_VOLTAGE_LSB])/1000.0f;
 
-	ret = _interface->read_word(BATT_SMBUS_CELL_4_VOLTAGE, result);
+	uint16_t data = 0;
+
+        result |= _interface->read_word(BATT_SMBUS_CELL_5_VOLTAGE, data);
+        // Convert millivolts to volts.
+	_cell_voltages[4] = ((float)data) / 1000.0f;
+
+        result |= _interface->read_word(BATT_SMBUS_CELL_6_VOLTAGE, data);
 	// Convert millivolts to volts.
-	_cell_voltages[3] = ((float)result) / 1000.0f;
+	_cell_voltages[5] = ((float)data) / 1000.0f;
 
 	//Calculate max cell delta
 	_min_cell_voltage = _cell_voltages[0];
@@ -237,59 +239,27 @@ int BATT_SMBUS::get_cell_voltages()
 	_max_cell_voltage_delta = (0.5f * (max_cell_voltage - _min_cell_voltage)) +
 				  (0.5f * _last_report.max_cell_voltage_delta);
 
-	return ret;
+	return result;
 }
 
-void BATT_SMBUS::set_undervoltage_protection(float average_current)
+int BATT_SMBUS::get_scale_factor()
 {
-	// Disable undervoltage protection if armed. Enable if disarmed and cell voltage is above limit.
-	if (average_current > BATT_CURRENT_UNDERVOLTAGE_THRESHOLD) {
-		if (_cell_undervoltage_protection_status == PROTECTED) {
-			// Disable undervoltage protection
-			uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_CUV_DISABLED;
-			uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
+	uint8_t scale_factor = 0;
 
-			if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
-				_cell_undervoltage_protection_status = NOT_PROTECTED;
-				PX4_WARN("Disabled CUV");
+	int result = manufacturer_read(BQ40Z80_SCALE_FACTOR_ADDR, &scale_factor, 1);
 
-			} else {
-				PX4_WARN("Failed to disable CUV");
-			}
-		}
-
-	} else {
-		if (_cell_undervoltage_protection_status == NOT_PROTECTED) {
-			if (_min_cell_voltage > BATT_VOLTAGE_UNDERVOLTAGE_THRESHOLD) {
-				// Enable undervoltage protection
-				uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_DEFAULT;
-				uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
-
-				if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
-					_cell_undervoltage_protection_status = PROTECTED;
-					PX4_WARN("Enabled CUV");
-
-				} else {
-					PX4_WARN("Failed to enable CUV");
-				}
-			}
-		}
+	if (result != OK)
+	{
+		PX4_ERR("get_scale_factor() failed");
+		return 1;
 	}
 
-}
-
-//@NOTE: Currently unused, could be helpful for debugging a parameter set though.
-int BATT_SMBUS::dataflash_read(uint16_t &address, void *data, const unsigned length)
-{
-	uint8_t code = BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS;
-
-	int result = _interface->block_write(code, &address, 2, true);
-
-	if (result != PX4_OK) {
-		return result;
+	if (scale_factor == 0) {
+		scale_factor = 1;
 	}
-
-	result = _interface->block_read(code, data, length, true);
+	else {
+		_scale_factor = scale_factor;
+	}
 
 	return result;
 }
@@ -326,7 +296,6 @@ int BATT_SMBUS::get_startup_info()
 	param_get(param_find("BAT_CRIT_THR"), &_crit_thr);
 	param_get(param_find("BAT_LOW_THR"), &_low_thr);
 	param_get(param_find("BAT_EMERGEN_THR"), &_emergency_thr);
-	param_get(param_find("BAT_C_MULT"), &_c_mult);
 
 	// Try and get battery SBS info.
 	if (_manufacturer_name == nullptr) {
@@ -341,6 +310,8 @@ int BATT_SMBUS::get_startup_info()
 		_manufacturer_name = new char[sizeof(man_name)];
 	}
 
+	result |= get_scale_factor();
+
 	uint16_t serial_num;
 	result = _interface->read_word(BATT_SMBUS_SERIAL_NUMBER, serial_num);
 
@@ -353,11 +324,19 @@ int BATT_SMBUS::get_startup_info()
 	uint16_t full_cap;
 	result |= _interface->read_word(BATT_SMBUS_FULL_CHARGE_CAPACITY, full_cap);
 
+	uint16_t state_of_health;
+	result |= _interface->read_word(BATT_SMBUS_STATE_OF_HEALTH, state_of_health);
+
+	uint16_t max_error;
+	result |= _interface->read_word(BATT_SMBUS_MAX_ERROR, max_error);
+
 	if (!result) {
 		_serial_number = serial_num;
-		_batt_startup_capacity = (uint16_t)((float)remaining_cap * _c_mult);
+		_batt_startup_capacity = (uint16_t)((float)remaining_cap * _scale_factor);
 		_cycle_count = cycle_count;
-		_batt_capacity = (uint16_t)((float)full_cap * _c_mult);
+		_batt_capacity = (uint16_t)((float)full_cap * _scale_factor);
+		_max_error = max_error;
+		_state_of_health = state_of_health;
 	}
 
 	if (lifetime_data_flush() == PX4_OK) {
