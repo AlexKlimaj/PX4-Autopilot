@@ -386,7 +386,7 @@ int BATT_SMBUS::manufacturer_name(uint8_t *man_name, const uint8_t length)
 	uint8_t rx_buf[21] = {};
 
 	// Returns 21 bytes, add 1 byte for null terminator.
-	int result = _interface->block_read(code, rx_buf, length - 1, true);
+	int result = _interface->block_read(code, rx_buf, length - 1, false);
 
 	memcpy(man_name, rx_buf, sizeof(rx_buf));
 
@@ -409,8 +409,13 @@ int BATT_SMBUS::manufacturer_read(const uint16_t cmd_code, void *data, const uns
 		return result;
 	}
 
-	result = _interface->block_read(code, data, length, true);
-	memmove(data, &((uint8_t *)data)[2], length - 2); // remove the address bytes
+	// Intermediary buffer to ensure we read the entire returned block
+	uint8_t buf[34] = {};
+
+	result = _interface->block_read(code, buf, length + 1, false);
+
+	// Drop the 2 leading bytes of address info
+	memcpy(data, &buf[2], length);
 
 	return result;
 }
@@ -464,10 +469,9 @@ int BATT_SMBUS::lifetime_data_flush()
 
 int BATT_SMBUS::lifetime_read_block_one()
 {
-	const int buffer_size = 32 + 2; // 32 bytes of data and 2 bytes of address
-	uint8_t lifetime_block_one[buffer_size] = {};
+	uint8_t lifetime_block_one[MAC_BA_DATA_BUFFER_SIZE] = {};
 
-	if (PX4_OK != manufacturer_read(BATT_SMBUS_LIFETIME_BLOCK_ONE, lifetime_block_one, buffer_size)) {
+	if (PX4_OK != manufacturer_read(BATT_SMBUS_LIFETIME_BLOCK_ONE, lifetime_block_one, MAC_BA_DATA_BUFFER_SIZE)) {
 		PX4_INFO("Failed to read lifetime block 1.");
 		return PX4_ERROR;
 	}

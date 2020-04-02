@@ -107,7 +107,7 @@ void SSD1306::updateStatus(const battery_status_s& data)
 	drawString(0, 0, str);
 
 	// TODO: verify we are properly handling negatives here.
-	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*1000));
+	snprintf(text_temp, sizeof(text_temp), "mA: %d", (int)(data.current_a*-1000));
 
 	str = text_temp;
 	drawString(0, 16, str);
