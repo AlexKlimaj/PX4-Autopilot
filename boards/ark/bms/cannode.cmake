@@ -31,17 +31,21 @@ px4_add_board(
 	DRIVERS
 		batt_smbus
 		bootloaders
-		gps
+		gps # TODO: Turn off and get rid of build error
 		ssd1306
 		uavcannode
 	MODULES
 		button_task
+		logger # TODO: SDIO config
+		# mavlink # TODO: Mavlink stream over USB
 	SYSTEMCMDS
+		hardfault_log
 		param
 		perf
 		reboot
 		top
 		topic_listener
+		# usb_connected # TODO: SUSB Config
 		ver
 		work_queue
 )
