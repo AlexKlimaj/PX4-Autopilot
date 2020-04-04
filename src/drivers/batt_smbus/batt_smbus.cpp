@@ -166,7 +166,7 @@ void BATT_SMBUS::RunImpl()
 	new_report.max_error = _max_error;
 	new_report.scale = _scale_factor;
 	new_report.state_of_health = _state_of_health;
-	new_report.cell_count = _cell_count;
+	new_report.cell_count = 6;
 	new_report.voltage_cell_v[0] = _cell_voltages[0];
 	new_report.voltage_cell_v[1] = _cell_voltages[1];
 	new_report.voltage_cell_v[2] = _cell_voltages[2];
@@ -223,48 +223,36 @@ int BATT_SMBUS::configure_output_FETs(bool enable)
 	uint16_t status;
 	int result = manufacturer_read(BQ40Z80_MAC_BA_MANUFACTURING_STATUS, &status, 2);
 
-	if (result != OK)
-	{
+	if (result != PX4_OK) {
 		PX4_ERR("[bq40z80] reading FET status failed");
 		return result;
 	}
 
 	_output_fets_enabled = status & BQ40Z80_FET_EN_MASK;
 
-	if (_output_fets_enabled)
-	{
+	if (_output_fets_enabled) {
 		PX4_INFO("[bq40z80] FETs are enabled");
-	}
-	else
-	{
+	} else {
 		PX4_INFO("[bq40z80] FETs are disabled");
 	}
 
 	// They're off, let's turn them on
-	if (_output_fets_enabled != enable)
-	{
-		result |= manufacturer_write(BQ40Z80_MAC_BA_FET_EN, nullptr, 0);
+	if (_output_fets_enabled != enable) {
+		result = manufacturer_write(BQ40Z80_MAC_BA_FET_EN, nullptr, 0);
 
-		if (result != OK)
-		{
-			if (_output_fets_enabled)
-			{
+		if (result != PX4_OK) {
+			if (_output_fets_enabled) {
 				PX4_ERR("[bq40z80] Disabling FETs failed");
-			}
-			else
-			{
+			} else {
 				PX4_ERR("[bq40z80] Enabling FETs failed");
 			}
 
 			return result;
 		}
 
-		if (enable)
-		{
+		if (enable) {
 			PX4_INFO("[bq40z80] FETs successfully enabled");
-		}
-		else
-		{
+		} else {
 			PX4_INFO("[bq40z80] FETs successfully disabled");
 		}
 
@@ -286,7 +274,7 @@ int BATT_SMBUS::configure_protections(bool enable, bool read_only)
 		result = manufacturer_read(BQ40Z80_ENABLED_PROTECTIONS_A_ADDR, enabled_protections, sizeof(enabled_protections));
 		px4_usleep(50000);
 
-		if (result == OK) {
+		if (result == PX4_OK) {
 			break;
 		}
 		if (i == 9) {
@@ -296,16 +284,22 @@ int BATT_SMBUS::configure_protections(bool enable, bool read_only)
 		PX4_ERR("[bq40z80] get ENABLED_PROTECTIONS failed, retrying");
 	}
 
-	if ((enabled_protections[0] != BQ40Z80_ENABLED_PROTECTIONS_A_VAL) || (enabled_protections[1] != BQ40Z80_ENABLED_PROTECTIONS_B_VAL) || (enabled_protections[2] != BQ40Z80_ENABLED_PROTECTIONS_C_VAL) || (enabled_protections[3] != BQ40Z80_ENABLED_PROTECTIONS_D_VAL)){
+	if ((enabled_protections[0] != BQ40Z80_ENABLED_PROTECTIONS_A_VAL) ||
+		(enabled_protections[1] != BQ40Z80_ENABLED_PROTECTIONS_B_VAL) ||
+		(enabled_protections[2] != BQ40Z80_ENABLED_PROTECTIONS_C_VAL) ||
+		(enabled_protections[3] != BQ40Z80_ENABLED_PROTECTIONS_D_VAL)) {
+
 		// Check to make sure all protections are disabled
-		for (size_t i = 0; i < sizeof(enabled_protections); i++) {
+		for (size_t i = 0; i < 4; i++) {
 			if (enabled_protections[i] != 0) {
 				all_protections_disabled = false;
+				break;
 			}
 		}
 		if (all_protections_disabled == true) {
 			_protections_enabled = false;
 		}
+		// ... we're missing the logic for some enabled and some disabled
 	}
 	else {
 		_protections_enabled = true;
@@ -316,12 +310,13 @@ int BATT_SMBUS::configure_protections(bool enable, bool read_only)
 	}
 
 	if ((enable == true) && (_protections_enabled != true)) {
-		enabled_protections[0] = (uint8_t)BQ40Z80_ENABLED_PROTECTIONS_A_VAL;
-		enabled_protections[1] = (uint8_t)BQ40Z80_ENABLED_PROTECTIONS_B_VAL;
-		enabled_protections[2] = (uint8_t)BQ40Z80_ENABLED_PROTECTIONS_C_VAL;
-		enabled_protections[3] = (uint8_t)BQ40Z80_ENABLED_PROTECTIONS_D_VAL;
+		enabled_protections[0] = BQ40Z80_ENABLED_PROTECTIONS_A_VAL;
+		enabled_protections[1] = BQ40Z80_ENABLED_PROTECTIONS_B_VAL;
+		enabled_protections[2] = BQ40Z80_ENABLED_PROTECTIONS_C_VAL;
+		enabled_protections[3] = BQ40Z80_ENABLED_PROTECTIONS_D_VAL;
 		result = manufacturer_write(BQ40Z80_ENABLED_PROTECTIONS_A_ADDR, enabled_protections, 4);
-		if (result != OK) {
+
+		if (result != PX4_OK) {
 			PX4_ERR("[bq40z80] ENABLE_PROTECTIONS failed!");
 			return result;
 		}
@@ -330,11 +325,11 @@ int BATT_SMBUS::configure_protections(bool enable, bool read_only)
 		}
 	}
 	else if ((enable == false) && (_protections_enabled != false)){
-		for (size_t i = 0; i < sizeof(enabled_protections); i++) {
+		for (size_t i = 0; i < 4; i++) {
 			enabled_protections[i] = 0;
 		}
-		result |= manufacturer_write(BQ40Z80_ENABLED_PROTECTIONS_A_ADDR, enabled_protections, 4);
-		if (result != OK) {
+		result = manufacturer_write(BQ40Z80_ENABLED_PROTECTIONS_A_ADDR, enabled_protections, 4);
+		if (result != PX4_OK) {
 			PX4_ERR("[bq40z80] DISABLE_PROTECTIONS failed!");
 			return result;
 		}
@@ -352,28 +347,27 @@ int BATT_SMBUS::get_voltages()
 	uint8_t status[MAC_BA_DATA_BUFFER_SIZE];
 	int result = manufacturer_read(BQ40Z80_MAC_BA_DASTATUS1, &status, MAC_BA_DATA_BUFFER_SIZE);
 
-	if (result != OK)
-	{
+	if (result != PX4_OK) {
 		PX4_ERR("[bq40z80] reading DAStatus1 failed");
 		return 0;
 	}
 
-	_pack_voltage = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_PACK_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_PACK_VOLTAGE_LSB])/1000.0f;
-	_bat_voltage = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_BAT_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_BAT_VOLTAGE_LSB])/1000.0f;
+	_pack_voltage = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_PACK_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_PACK_VOLTAGE_LSB]) / 1000.0f;
+	_bat_voltage = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_BAT_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_BAT_VOLTAGE_LSB]) / 1000.0f;
 
 	// Convert millivolts to volts.
-	_cell_voltages[0] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL1_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL1_VOLTAGE_LSB])/1000.0f;
-	_cell_voltages[1] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL2_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL2_VOLTAGE_LSB])/1000.0f;
-	_cell_voltages[2] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL3_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL3_VOLTAGE_LSB])/1000.0f;
-	_cell_voltages[3] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL4_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL4_VOLTAGE_LSB])/1000.0f;
+	_cell_voltages[0] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL1_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL1_VOLTAGE_LSB]) / 1000.0f;
+	_cell_voltages[1] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL2_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL2_VOLTAGE_LSB]) / 1000.0f;
+	_cell_voltages[2] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL3_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL3_VOLTAGE_LSB]) / 1000.0f;
+	_cell_voltages[3] = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_CELL4_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_CELL4_VOLTAGE_LSB]) / 1000.0f;
 
 	uint16_t data = 0;
 
-        result |= _interface->read_word(BATT_SMBUS_CELL_5_VOLTAGE, data);
-        // Convert millivolts to volts.
+    result |= _interface->read_word(BATT_SMBUS_CELL_5_VOLTAGE, data);
+    // Convert millivolts to volts.
 	_cell_voltages[4] = ((float)data) / 1000.0f;
 
-        result |= _interface->read_word(BATT_SMBUS_CELL_6_VOLTAGE, data);
+    result |= _interface->read_word(BATT_SMBUS_CELL_6_VOLTAGE, data);
 	// Convert millivolts to volts.
 	_cell_voltages[5] = ((float)data) / 1000.0f;
 
@@ -399,8 +393,7 @@ int BATT_SMBUS::get_scale_factor()
 
 	int result = manufacturer_read(BQ40Z80_SCALE_FACTOR_ADDR, &scale_factor, 1);
 
-	if (result != OK)
-	{
+	if (result != PX4_OK) {
 		PX4_ERR("get_scale_factor() failed");
 		return 1;
 	}
@@ -408,9 +401,8 @@ int BATT_SMBUS::get_scale_factor()
 	if (scale_factor == 0) {
 		scale_factor = 1;
 	}
-	else {
-		_scale_factor = scale_factor;
-	}
+
+	_scale_factor = scale_factor;
 
 	return result;
 }
@@ -515,20 +507,21 @@ uint16_t BATT_SMBUS::get_serial_number()
 {
 	uint16_t serial_num = 0;
 
-	if (_interface->read_word(BATT_SMBUS_SERIAL_NUMBER, serial_num) == PX4_OK) {
-		return serial_num;
+	if (_interface->read_word(BATT_SMBUS_SERIAL_NUMBER, serial_num) != PX4_OK) {
+		PX4_INFO("Failed to read serial number");
+		return PX4_ERROR;
 	}
 
-	return PX4_ERROR;
+	return serial_num;
 }
 
 int BATT_SMBUS::manufacture_date()
 {
-	uint16_t date;
-	int result = _interface->read_word(BATT_SMBUS_MANUFACTURE_DATE, date);
+	uint16_t date = 0;
 
-	if (result != PX4_OK) {
-		return result;
+	if (_interface->read_word(BATT_SMBUS_MANUFACTURE_DATE, date) != PX4_OK) {
+		PX4_INFO("Failed to read manufacturer date");
+		return PX4_ERROR;
 	}
 
 	return date;

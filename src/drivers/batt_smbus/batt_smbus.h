@@ -290,9 +290,6 @@ private:
 	/** @param _batt_topic uORB battery topic. */
 	orb_advert_t _batt_topic{nullptr};
 
-	/** @param _cell_count Number of series cell. */
-	uint8_t _cell_count{4};
-
 	/** @param _batt_capacity Battery design capacity in mAh (0 means unknown). */
 	uint16_t _batt_capacity{0};
 
@@ -334,14 +331,6 @@ private:
 
 	/** @param _protections_enabled State of the protections */
 	bool _protections_enabled{};
-
-	/** @param _cell_undervoltage_protection_status */
-	enum protection_status {
-		NOT_PROTECTED = 0,
-		PROTECTED = 1,
-	};
-	uint8_t _cell_undervoltage_protection_status {PROTECTED};
-
 
 	BATT_SMBUS(const BATT_SMBUS &) = delete;
 	BATT_SMBUS operator=(const BATT_SMBUS &) = delete;
