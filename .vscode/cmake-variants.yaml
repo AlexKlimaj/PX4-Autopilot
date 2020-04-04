@@ -86,3 +86,8 @@ CONFIG:
       buildType: MinSizeRel
       settings:
         CONFIG: nxp_fmuk66-v3_default
+    ark_bms_cannode:
+      short: ark_bms_cannode
+      buildType: MinSizeRel
+      settings:
+        CONFIG: ark_bms_cannode
