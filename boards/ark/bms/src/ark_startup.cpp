@@ -119,45 +119,51 @@ void update_battery_data(void)
 
 void update_led_status(void)
 {
-	float remaining = _soc; // 0 - 1
-	int remaining_fifth = (int)(remaining * 5 + 1);
+	int percent_remaining = 100 * _soc;
 
-	switch (remaining_fifth)
-	{
-		case 1:
-			stm32_gpiowrite(GPIO_LED_5, false);
-			stm32_gpiowrite(GPIO_LED_4, true);
-			stm32_gpiowrite(GPIO_LED_3, true);
-			stm32_gpiowrite(GPIO_LED_2, true);
-			stm32_gpiowrite(GPIO_LED_1, true);
-			break;
-		case 2:
-			stm32_gpiowrite(GPIO_LED_5, false);
-			stm32_gpiowrite(GPIO_LED_4, false);
-			stm32_gpiowrite(GPIO_LED_3, true);
-			stm32_gpiowrite(GPIO_LED_2, true);
-			stm32_gpiowrite(GPIO_LED_1, true);
-			break;
-		case 3:
-			stm32_gpiowrite(GPIO_LED_5, false);
-			stm32_gpiowrite(GPIO_LED_4, false);
-			stm32_gpiowrite(GPIO_LED_3, false);
-			stm32_gpiowrite(GPIO_LED_2, true);
-			stm32_gpiowrite(GPIO_LED_1, true);
-			break;
-		case 4:
-			stm32_gpiowrite(GPIO_LED_5, false);
-			stm32_gpiowrite(GPIO_LED_4, false);
-			stm32_gpiowrite(GPIO_LED_3, false);
-			stm32_gpiowrite(GPIO_LED_2, false);
-			stm32_gpiowrite(GPIO_LED_1, true);
-			break;
-		case 5:
-			stm32_gpiowrite(GPIO_LED_5, false);
-			stm32_gpiowrite(GPIO_LED_4, false);
-			stm32_gpiowrite(GPIO_LED_3, false);
-			stm32_gpiowrite(GPIO_LED_2, false);
-			stm32_gpiowrite(GPIO_LED_1, false);
-			break;
+	if (percent_remaining >= 95) {
+		stm32_gpiowrite(GPIO_LED_5, false);
+		stm32_gpiowrite(GPIO_LED_4, false);
+		stm32_gpiowrite(GPIO_LED_3, false);
+		stm32_gpiowrite(GPIO_LED_2, false);
+		stm32_gpiowrite(GPIO_LED_1, false);
+
+	} else if (percent_remaining >= 75) {
+		stm32_gpiowrite(GPIO_LED_5, false);
+		stm32_gpiowrite(GPIO_LED_4, false);
+		stm32_gpiowrite(GPIO_LED_3, false);
+		stm32_gpiowrite(GPIO_LED_2, false);
+		stm32_gpiowrite(GPIO_LED_1, true);
+
+	} else if (percent_remaining >= 55) {
+		stm32_gpiowrite(GPIO_LED_5, false);
+		stm32_gpiowrite(GPIO_LED_4, false);
+		stm32_gpiowrite(GPIO_LED_3, false);
+		stm32_gpiowrite(GPIO_LED_2, true);
+		stm32_gpiowrite(GPIO_LED_1, true);
+
+	} else if (percent_remaining >= 35) {
+		stm32_gpiowrite(GPIO_LED_5, false);
+		stm32_gpiowrite(GPIO_LED_4, false);
+		stm32_gpiowrite(GPIO_LED_3, true);
+		stm32_gpiowrite(GPIO_LED_2, true);
+		stm32_gpiowrite(GPIO_LED_1, true);
+
+	} else if (percent_remaining >= 15) {
+		stm32_gpiowrite(GPIO_LED_5, false);
+		stm32_gpiowrite(GPIO_LED_4, true);
+		stm32_gpiowrite(GPIO_LED_3, true);
+		stm32_gpiowrite(GPIO_LED_2, true);
+		stm32_gpiowrite(GPIO_LED_1, true);
+
+	} else {
+		// Blink the last led rapidly
+		static bool toggle = false;
+		toggle = !toggle;
+		stm32_gpiowrite(GPIO_LED_5, toggle);
+		stm32_gpiowrite(GPIO_LED_4, true);
+		stm32_gpiowrite(GPIO_LED_3, true);
+		stm32_gpiowrite(GPIO_LED_2, true);
+		stm32_gpiowrite(GPIO_LED_1, true);
 	}
 }
