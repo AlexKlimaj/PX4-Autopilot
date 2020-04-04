@@ -229,6 +229,13 @@ void ButtonTask::updateLEDs(const battery_status_s& data)
 			stm32_gpiowrite(GPIO_LED_2, false);
 			stm32_gpiowrite(GPIO_LED_1, false);
 			break;
+		case 6: // 100.0 % exactly
+			stm32_gpiowrite(GPIO_LED_5, false);
+			stm32_gpiowrite(GPIO_LED_4, false);
+			stm32_gpiowrite(GPIO_LED_3, false);
+			stm32_gpiowrite(GPIO_LED_2, false);
+			stm32_gpiowrite(GPIO_LED_1, false);
+			break;
 	}
 }
 
