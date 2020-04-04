@@ -61,16 +61,18 @@ void ark_check_button_and_update_display()
 	auto start_time = hrt_absolute_time();
 	auto time_now = start_time;
 
-	// If we have voltage on PACK+ then boot immediately
-	if (check_pack_voltage()) {
-		return;
-	}
-
 	// Button should be held for 2.5 out of 3 seconds
 	while (time_now < (start_time + BUTTON_SHUTDOWN_DURATION_US)) {
 		update_battery_data();
 		ssd1306::updateStatus(_voltage_mv, _current_ma, _soc);
 		update_led_status();
+
+		// If we have voltage on PACK+ then boot immediately
+		if (check_pack_voltage()) {
+			uint64_t elapsed = time_now - start_time;
+			printf("PACK Voltage took: %d us to detect\n", (int)elapsed);
+			return;
+		}
 
 		up_udelay(50000); // 100ms -- because our loop delay is wrong
 
