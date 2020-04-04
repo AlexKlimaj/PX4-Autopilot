@@ -16,6 +16,7 @@ jobs:
       matrix:
         config: [
           airmind_mindpx-v2_default,
+          ark_bms_cannode,
           av_x-v1_default,
           bitcraze_crazyflie_default,
           holybro_durandal-v1_default,
