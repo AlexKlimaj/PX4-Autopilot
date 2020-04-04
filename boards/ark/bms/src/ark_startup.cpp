@@ -200,9 +200,8 @@ bool check_pack_voltage(void)
 
 	float pack_voltage = (float)(((uint16_t)status[BQ40Z80_DASTATUS1_PACK_VOLTAGE_MSB] << 8) | status[BQ40Z80_DASTATUS1_PACK_VOLTAGE_LSB]) / 1000.0f;
 
-	printf("pack voltage: %f\n", (double)pack_voltage);
-
 	if (pack_voltage > 3.5f) {
+		printf("pack voltage: %f\n", (double)pack_voltage);
 		return true;
 	}
 
