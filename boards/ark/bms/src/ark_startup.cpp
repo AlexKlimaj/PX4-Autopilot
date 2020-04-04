@@ -50,10 +50,8 @@ void ark_clean_up(void)
 
 void ark_check_button_and_update_display()
 {
+	static bool button_was_held = true;
 	static constexpr uint64_t BUTTON_SHUTDOWN_DURATION_US = 3000000;
-
-	unsigned times_thru_loop = 0;
-	unsigned button_still_held = 0;
 
 	auto start_time = hrt_absolute_time();
 	auto time_now = start_time;
@@ -64,25 +62,35 @@ void ark_check_button_and_update_display()
 		ssd1306::updateStatus(_voltage_mv, _current_ma, _soc);
 		update_led_status();
 
-		up_udelay(50000); // 100ms
+		up_udelay(50000); // 100ms -- because our loop delay is wrong
 
 		bool button_held = !stm32_gpioread(GPIO_BUTTON);
 
 		if (button_held) {
+
+			if (!button_was_held) {
+				start_time = hrt_absolute_time();
+				button_was_held = true;
+			}
+
 			printf("Keep holding that button big guy\n");
-			button_still_held++;
+
+		} else {
+
+			if (button_was_held) {
+				start_time = hrt_absolute_time();
+				button_was_held = false;
+				printf("aww you let go\n");
+			}
 		}
 
-		times_thru_loop++;
 		time_now = hrt_absolute_time();
 	}
 
-	unsigned percent_held = (100 * button_still_held) / times_thru_loop;
-
-	if (percent_held >= 90) {
+	if (button_was_held) {
 		// Good to go
-		printf("Congrats you held the button for %d percent of the time\n", percent_held);
 		return;
+
 	} else {
 		printf("Button not held, powering off\n");
 
