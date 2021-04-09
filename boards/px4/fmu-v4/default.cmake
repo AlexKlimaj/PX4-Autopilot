@@ -19,6 +19,7 @@ px4_add_board(
 		adc/board_adc
 		barometer # all available barometer drivers
 		batt_smbus
+		bq4050
 		camera_capture
 		camera_trigger
 		differential_pressure # all available differential pressure drivers

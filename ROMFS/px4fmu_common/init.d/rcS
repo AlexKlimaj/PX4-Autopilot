@@ -352,7 +352,8 @@ else
 
 		if ! param compare BAT1_SOURCE 1
 		then
-			battery_status start
+			# battery_status start
+			bq4050 -X start
 		fi
 
 		commander start
