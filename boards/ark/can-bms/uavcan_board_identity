@@ -8,7 +8,7 @@ add_definitions(
 
 set(uavcanblid_hw_version_major 0)
 set(uavcanblid_hw_version_minor 80)
-set(uavcanblid_name "\"org.ark.can-flow\"")
+set(uavcanblid_name "\"org.ark.can-bms\"")
 
 add_definitions(
 	-DHW_UAVCAN_NAME=${uavcanblid_name}

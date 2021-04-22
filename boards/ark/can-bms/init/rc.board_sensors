@@ -3,7 +3,8 @@
 # board sensors init
 #------------------------------------------------------------------------------
 
-# Internal SPI
-paw3902 -s start -Y 90
-bmi088 -A -s -R 4 start
-bmi088 -G -s -R 4 start
+gps start -d /dev/ttyS0 -g 38400 -p ubx
+
+# Internal I2C
+bmp388 -I start
+bmm150 -I start

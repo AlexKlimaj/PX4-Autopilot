@@ -117,6 +117,9 @@
 /* Alternate function pin selections ************************************************/
 
 /* UARTs */
+#define GPIO_USART1_RX	GPIO_USART1_RX_2
+#define GPIO_USART1_TX	GPIO_USART1_TX_3
+
 #define GPIO_USART2_RX	GPIO_USART2_RX_1
 #define GPIO_USART2_TX	GPIO_USART2_TX_1
 
@@ -128,13 +131,12 @@
 #define GPIO_I2C1_SCL	GPIO_I2C1_SCL_1
 #define GPIO_I2C1_SDA	GPIO_I2C1_SDA_1
 
+#define GPIO_I2C2_SCL	GPIO_I2C2_SCL_1
+#define GPIO_I2C2_SDA	GPIO_I2C2_SDA_4
+
 /* SPI */
 #define GPIO_SPI1_MISO  GPIO_SPI1_MISO_1
 #define GPIO_SPI1_MOSI  GPIO_SPI1_MOSI_1
 #define GPIO_SPI1_SCK   GPIO_SPI1_SCK_1
-
-#define GPIO_SPI2_MISO  GPIO_SPI2_MISO_1
-#define GPIO_SPI2_MOSI  GPIO_SPI2_MOSI_1
-#define GPIO_SPI2_SCK   GPIO_SPI2_SCK_1
 
 #endif /* __ARCH_BOARD_BOARD_H */
