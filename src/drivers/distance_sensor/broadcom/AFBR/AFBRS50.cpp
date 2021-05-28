@@ -43,20 +43,6 @@
  ******************************************************************************/
 
 /*!***************************************************************************
- * @brief	printf-like function to send print messages via UART.
- *
- * @details Defined in "driver/uart.c" source file.
- *
- * 			Open an UART connection with 115200 bps, 8N1, no handshake to
- * 			receive the data on a computer.
- *
- * @param	fmt_s The usual printf parameters.
- *
- * @return 	Returns the \link #status_t status\endlink (#STATUS_OK on success).
- *****************************************************************************/
-extern status_t print(const char  *fmt_s, ...);
-
-/*!***************************************************************************
  * @brief	Initialization routine for board hardware and peripherals.
  *****************************************************************************/
 static void hardware_init(void);
@@ -156,7 +142,7 @@ AFBRS50::collect()
 				/* Use the recent measurement results
 					* (converting the Q9.22 value to float and print or display it). */
 				float result = res.Bin.Range / (Q9_22_ONE / 1000);
-				print("Range: %d mm\r\n", result);
+				PX4_INFO("Range: %d mm\r\n", result);
 				return result;
 			}
 		}
@@ -209,13 +195,13 @@ AFBRS50::init()
 	argus_hnd_t * hnd = Argus_CreateHandle();
 	if (hnd == 0)
 	{
-		print("ERROR: Handle not initialized\r\n");
+		PX4_INFO("ERROR: Handle not initialized\r\n");
 	}
 	hardware_init();
 	status_t status = Argus_Init(hnd, SPI_SLAVE);
 	if (status != STATUS_OK)
 	{
-		print("ERROR: Init status not okay: %i\r\n", status);
+		PX4_INFO("ERROR: Init status not okay: %i\r\n", status);
 	}
 	uint32_t value = Argus_GetAPIVersion();
 	uint8_t a = (value >> 24) & 0xFFU;
@@ -223,7 +209,7 @@ AFBRS50::init()
 	uint8_t c = value & 0xFFFFU;
 	uint32_t id = Argus_GetChipID(hnd);
 	argus_module_version_t mv = Argus_GetModuleVersion(hnd);
-	print("\n##### AFBR-S50 API - Simple Example ##############\n"
+	PX4_INFO("\n##### AFBR-S50 API - Simple Example ##############\n"
 		  "  API Version: v%d.%d.%d\n"
 		  "  Chip ID:     %d\n"
 		  "  Module:      %s\n"
@@ -300,20 +286,8 @@ AFBRS50::stop()
 
 static void AFBRS50::hardware_init(void)
 {
-	/* Initialize the board with clocks. */
-	BOARD_ClockInit();
-
-	/* Disable the watchdog timer. */
-	COP_Disable();
-
-	/* Init GPIO ports. */
-	GPIO_Init();
-
 	/* Initialize timer required by the API. */
 	Timer_Init();
-
-	/* Initialize UART for print functionality. */
-	UART_Init();
 
 	/* Initialize the S2PI hardware required by the API. */
 	S2PI_Init(SPI_SLAVE, SPI_BAUD_RATE);
