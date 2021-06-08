@@ -182,6 +182,14 @@ void AFBRS50::Run()
 
 			Argus_SetConfigurationFrameTime(_hnd, AFBRS50_MEASURE_INTERVAL);
 
+			argus_mode_t mode;
+			Argus_GetConfigurationMeasurementMode(_hnd, &mode);
+			PX4_INFO_RAW("AFBR Mode :%d\n", mode);
+
+			argus_dfm_mode_t dfm_mode;
+			Argus_GetConfigurationDFMMode(_hnd, mode, &dfm_mode);
+			PX4_INFO_RAW("AFBR DFM Mode :%d\n", dfm_mode);
+
 			status_t status = Argus_StartMeasurementTimer(_hnd, measurement_ready_callback);
 
 			if (status != STATUS_OK) {
