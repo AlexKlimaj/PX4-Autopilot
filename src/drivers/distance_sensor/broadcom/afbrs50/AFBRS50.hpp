@@ -92,4 +92,5 @@ private:
 
 	float _max_distance;
 	float _min_distance;
+	bool _testing = false;
 };
