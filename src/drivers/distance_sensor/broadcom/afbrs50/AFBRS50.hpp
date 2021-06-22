@@ -90,6 +90,6 @@ private:
 
 	perf_counter_t _sample_perf{perf_alloc(PC_INTERVAL, MODULE_NAME": sample interval")};
 
-	float max_distance;
-	float min_distance;
+	float _max_distance;
+	float _min_distance;
 };

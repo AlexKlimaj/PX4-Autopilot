@@ -95,7 +95,7 @@ void AFBRS50::ProcessMeasurement(void *data)
 			float result_m = static_cast<float>(result_mm) / 1000.f;
 
 			// Check if value is valid
-			if (result_m >= min_distance && result_m <= max_distance) {
+			if (result_m >= _min_distance && result_m <= _max_distance) {
 				_px4_rangefinder.update(((res.TimeStamp.sec * 1000000ULL) + res.TimeStamp.usec), result_m);
 			}
 
@@ -142,46 +142,46 @@ int AFBRS50::init()
 
 		// FALLTHROUGH
 		case AFBR_S50MV85G_V3:
-			min_distance = 0.08f;
-			max_distance = 10.f;
-			_px4_rangefinder.set_min_distance(min_distance);
-			_px4_rangefinder.set_max_distance(max_distance);
+			_min_distance = 0.08f;
+			_max_distance = 10.f;
+			_px4_rangefinder.set_min_distance(_min_distance);
+			_px4_rangefinder.set_max_distance(_max_distance);
 			_px4_rangefinder.set_fov(math::radians(6.f));
 			PX4_INFO_RAW("AFBR-S50MV85G\n");
 			break;
 
 		case AFBR_S50LV85D_V1:
-			min_distance = 0.08f;
-			max_distance = 30.f;
-			_px4_rangefinder.set_min_distance(min_distance);
-			_px4_rangefinder.set_max_distance(max_distance);
+			_min_distance = 0.08f;
+			_max_distance = 80.f;
+			_px4_rangefinder.set_min_distance(_min_distance);
+			_px4_rangefinder.set_max_distance(_max_distance);
 			_px4_rangefinder.set_fov(math::radians(6.f));
 			PX4_INFO_RAW("AFBR-S50LV85D (v1)\n");
 			break;
 
 		case AFBR_S50MV68B_V1:
-			min_distance = 0.08f;
-			max_distance = 10.f;
-			_px4_rangefinder.set_min_distance(min_distance);
-			_px4_rangefinder.set_max_distance(max_distance);
+			_min_distance = 0.08f;
+			_max_distance = 10.f;
+			_px4_rangefinder.set_min_distance(_min_distance);
+			_px4_rangefinder.set_max_distance(_max_distance);
 			_px4_rangefinder.set_fov(math::radians(1.f));
 			PX4_INFO_RAW("AFBR-S50MV68B (v1)\n");
 			break;
 
 		case AFBR_S50MV85I_V1:
-			min_distance = 0.08f;
-			max_distance = 5.f;
-			_px4_rangefinder.set_min_distance(min_distance);
-			_px4_rangefinder.set_max_distance(max_distance);
+			_min_distance = 0.08f;
+			_max_distance = 5.f;
+			_px4_rangefinder.set_min_distance(_min_distance);
+			_px4_rangefinder.set_max_distance(_max_distance);
 			_px4_rangefinder.set_fov(math::radians(6.f));
 			PX4_INFO_RAW("AFBR-S50MV85I (v1)\n");
 			break;
 
 		case AFBR_S50SV85K_V1:
-			min_distance = 0.08f;
-			max_distance = 10.f;
-			_px4_rangefinder.set_min_distance(min_distance);
-			_px4_rangefinder.set_max_distance(max_distance);
+			_min_distance = 0.08f;
+			_max_distance = 10.f;
+			_px4_rangefinder.set_min_distance(_min_distance);
+			_px4_rangefinder.set_max_distance(_max_distance);
 			_px4_rangefinder.set_fov(math::radians(4.f));
 			PX4_INFO_RAW("AFBR-S50SV85K (v1)\n");
 			break;
