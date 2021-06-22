@@ -217,6 +217,8 @@ void AFBRS50::Run()
 
 			_state = STATE::CONFIGURE;
 			ScheduleDelayed(100_ms);
+
+			_testing = false;
 		}
 		break;
 
