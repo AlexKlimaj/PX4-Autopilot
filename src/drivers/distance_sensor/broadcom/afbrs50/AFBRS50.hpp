@@ -92,5 +92,8 @@ private:
 
 	float _max_distance;
 	float _min_distance;
+<<<<<<< HEAD
 	bool _testing = false;
+=======
+>>>>>>> pr-broadcom_distance
 };
