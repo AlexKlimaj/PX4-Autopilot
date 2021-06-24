@@ -93,24 +93,15 @@ void AFBRS50::ProcessMeasurement(void *data)
 		if ((evaluate_status == STATUS_OK) && (res.Status == 0)) {
 			uint32_t result_mm = res.Bin.Range / (Q9_22_ONE / 1000);
 			float result_m = static_cast<float>(result_mm) / 1000.f;
-<<<<<<< HEAD
-=======
 			int8_t quality = 100;
->>>>>>> pr-broadcom_distance
 
 			// distance quality check
 			if (result_m < _min_distance || result_m > _max_distance) {
 				result_m = 0.0;
-<<<<<<< HEAD
-			}
-
-			_px4_rangefinder.update(((res.TimeStamp.sec * 1000000ULL) + res.TimeStamp.usec), result_m);
-=======
 				quality = 0;
 			}
 
 			_px4_rangefinder.update(((res.TimeStamp.sec * 1000000ULL) + res.TimeStamp.usec), result_m, quality);
->>>>>>> pr-broadcom_distance
 		}
 	}
 }
@@ -165,10 +156,6 @@ int AFBRS50::init()
 		case AFBR_S50LV85D_V1:
 			_min_distance = 0.08f;
 			_max_distance = 30.f;	// Short range mode
-<<<<<<< HEAD
-			// _max_distance = 80.f;	// Long range mode
-=======
->>>>>>> pr-broadcom_distance
 			_px4_rangefinder.set_min_distance(_min_distance);
 			_px4_rangefinder.set_max_distance(_max_distance);
 			_px4_rangefinder.set_fov(math::radians(6.f));
