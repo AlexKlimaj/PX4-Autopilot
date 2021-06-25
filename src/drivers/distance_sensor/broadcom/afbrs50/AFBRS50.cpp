@@ -198,6 +198,7 @@ int AFBRS50::init()
 		} else {
 			_state = STATE::CONFIGURE;
 		}
+		// _state = STATE::CONFIGURE;
 
 		ScheduleDelayed(AFBRS50_MEASURE_INTERVAL);
 		return PX4_OK;
@@ -213,12 +214,13 @@ void AFBRS50::Run()
 
 	switch (_state) {
 	case STATE::TEST: {
+			PX4_INFO("Running in TEST");
 			Argus_VerifyHALImplementation(Argus_GetSPISlave(_hnd));
 
-			_state = STATE::CONFIGURE;
+			// _state = STATE::CONFIGURE;
 			ScheduleDelayed(100_ms);
 
-			_testing = false;
+			// _testing = false;
 		}
 		break;
 
@@ -260,6 +262,20 @@ void AFBRS50::stop()
 {
 	_state = STATE::STOP;
 	ScheduleNow();
+}
+
+int AFBRS50::test()
+{
+	_state = STATE::TEST;
+	_testing = true;
+	PX4_INFO("set _state");
+
+	init();
+	PX4_INFO("called init()");
+
+	ScheduleNow();
+
+	return PX4_OK;
 }
 
 void AFBRS50::print_info()
@@ -319,10 +335,25 @@ static int stop()
 	return PX4_OK;
 }
 
-// static int test(const uint8_t rotation)
-// {
-// 	return afbrs50::start(rotation);
-// }
+static int test(const uint8_t rotation)
+{
+	PX4_INFO("into test function");
+
+	g_dev = new AFBRS50(rotation);
+	if (g_dev == nullptr) {
+		PX4_ERR("object instantiate failed");
+		return PX4_ERROR;
+	}
+
+	if (g_dev->test() != PX4_OK) {
+		PX4_ERR("driver test failed");
+		delete g_dev;
+		g_dev = nullptr;
+		return PX4_ERROR;
+	}
+
+	return PX4_OK;
+}
 
 static int usage()
 {
@@ -383,10 +414,10 @@ extern "C" __EXPORT int afbrs50_main(int argc, char *argv[])
 	} else if (!strcmp(argv[myoptind], "stop")) {
 		return afbrs50::stop();
 	} else if (!strcmp(argv[myoptind], "test")) {
-		g_dev->_testing = true;
-		// _testing = true;
-		return afbrs50::start(rotation);
-		// return afbrs50::test(rotation);
+		// g_dev->_testing = true;
+		// return afbrs50::test();
+		PX4_INFO("Made it to test!");
+		return afbrs50::test(rotation);
 	}
 
 	return afbrs50::usage();

@@ -68,6 +68,8 @@ public:
 	 */
 	void stop();
 
+	int test();
+
 	bool _testing = false;
 
 private:
