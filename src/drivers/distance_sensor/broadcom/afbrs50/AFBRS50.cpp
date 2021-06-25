@@ -199,9 +199,6 @@ int AFBRS50::init()
 			_state = STATE::CONFIGURE;
 		}
 
-
-
-
 		ScheduleDelayed(AFBRS50_MEASURE_INTERVAL);
 		return PX4_OK;
 	}
@@ -322,11 +319,10 @@ static int stop()
 	return PX4_OK;
 }
 
-static int test(const uint8_t rotation)
-{
-	_testing = true;
-	return afbrs50::start(rotation);
-}
+// static int test(const uint8_t rotation)
+// {
+// 	return afbrs50::start(rotation);
+// }
 
 static int usage()
 {
@@ -387,7 +383,10 @@ extern "C" __EXPORT int afbrs50_main(int argc, char *argv[])
 	} else if (!strcmp(argv[myoptind], "stop")) {
 		return afbrs50::stop();
 	} else if (!strcmp(argv[myoptind], "test")) {
-		return afbrs50::test(rotation);
+		g_dev->_testing = true;
+		// _testing = true;
+		return afbrs50::start(rotation);
+		// return afbrs50::test(rotation);
 	}
 
 	return afbrs50::usage();

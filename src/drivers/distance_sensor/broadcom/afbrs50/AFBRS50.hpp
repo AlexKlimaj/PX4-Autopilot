@@ -68,6 +68,8 @@ public:
 	 */
 	void stop();
 
+	bool _testing = false;
+
 private:
 	void Run() override;
 
@@ -92,5 +94,4 @@ private:
 
 	float _max_distance;
 	float _min_distance;
-	bool _testing = false;
 };

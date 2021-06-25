@@ -45,7 +45,6 @@ px4_add_module(
 		Inc
 	SRCS
 		AFBRS50.cpp
-		AFBRS50.hpp
 		API/Src/irq.c
 		API/Src/s2pi.c
 		API/Src/timer.c
