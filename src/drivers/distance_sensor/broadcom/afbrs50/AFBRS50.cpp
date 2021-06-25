@@ -217,10 +217,9 @@ void AFBRS50::Run()
 			PX4_INFO("Running in TEST");
 			Argus_VerifyHALImplementation(Argus_GetSPISlave(_hnd));
 
-			// _state = STATE::CONFIGURE;
+			_state = STATE::CONFIGURE;
 			ScheduleDelayed(100_ms);
 
-			// _testing = false;
 		}
 		break;
 
