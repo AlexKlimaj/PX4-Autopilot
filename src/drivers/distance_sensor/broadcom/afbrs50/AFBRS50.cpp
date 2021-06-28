@@ -214,12 +214,9 @@ void AFBRS50::Run()
 
 	switch (_state) {
 	case STATE::TEST: {
-			PX4_INFO("Running in TEST");
 			Argus_VerifyHALImplementation(Argus_GetSPISlave(_hnd));
 
-			_state = STATE::CONFIGURE;
-			ScheduleDelayed(100_ms);
-
+			AFBRS50::stop();
 		}
 		break;
 
@@ -267,10 +264,8 @@ int AFBRS50::test()
 {
 	_state = STATE::TEST;
 	_testing = true;
-	PX4_INFO("set _state");
 
 	init();
-	PX4_INFO("called init()");
 
 	ScheduleNow();
 
@@ -336,9 +331,13 @@ static int stop()
 
 static int test(const uint8_t rotation)
 {
-	PX4_INFO("into test function");
+	if (g_dev != nullptr) {
+		PX4_ERR("already started");
+		return PX4_ERROR;
+	}
 
 	g_dev = new AFBRS50(rotation);
+
 	if (g_dev == nullptr) {
 		PX4_ERR("object instantiate failed");
 		return PX4_ERROR;
@@ -413,9 +412,6 @@ extern "C" __EXPORT int afbrs50_main(int argc, char *argv[])
 	} else if (!strcmp(argv[myoptind], "stop")) {
 		return afbrs50::stop();
 	} else if (!strcmp(argv[myoptind], "test")) {
-		// g_dev->_testing = true;
-		// return afbrs50::test();
-		PX4_INFO("Made it to test!");
 		return afbrs50::test(rotation);
 	}
 
