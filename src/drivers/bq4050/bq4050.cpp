@@ -111,7 +111,7 @@ void BQ4050::RunImpl()
 
 	float average_current = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f) * _c_mult;
 
-	new_report.average_current_a = average_current;
+	new_report.current_average_a = average_current;
 
 	// If current is high, turn under voltage protection off. This is neccessary to prevent
 	// a battery from cutting off while flying with high current near the end of the packs capacity.
@@ -533,7 +533,7 @@ $ bq4050 -X write_flash 19069 2 27 0
 I2CSPIDriverBase *BQ4050::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
 				      int runtime_instance)
 {
-	SMBus *interface = new SMBus(iterator.bus(), cli.i2c_address);
+	SMBus *interface = new SMBus(DRV_BAT_DEVTYPE_SMBUS, iterator.bus(), cli.i2c_address);
 	if (interface == nullptr) {
 		PX4_ERR("alloc failed");
 		return nullptr;
