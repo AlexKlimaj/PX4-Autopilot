@@ -53,6 +53,16 @@ UavcanFlowBridge::init()
 		return res;
 	}
 
+	param_t rot = param_find("SENS_FLOW_ROT");
+	int32_t val = 0;
+
+	if (param_get(rot, &val) == PX4_OK) {
+		_rotation = get_rot_matrix((enum Rotation)val);
+
+	} else {
+		_rotation.identity();
+	}
+
 	return 0;
 }
 
@@ -65,11 +75,16 @@ void UavcanFlowBridge::flow_sub_cb(const uavcan::ReceivedDataStructure<com::hex:
 
 	flow.timestamp = hrt_absolute_time();
 	flow.integration_timespan = 1.e6f * msg.integration_interval; // s -> micros
-	flow.pixel_flow_x_integral = msg.flow_integral[0];
-	flow.pixel_flow_y_integral = msg.flow_integral[1];
 
-	flow.gyro_x_rate_integral = msg.rate_gyro_integral[0];
-	flow.gyro_y_rate_integral = msg.rate_gyro_integral[1];
+	// rotate measurements in yaw from sensor frame to body frame
+	const matrix::Vector3f pixel_flow_rotated = _rotation * matrix::Vector3f{msg.flow_integral[0], msg.flow_integral[1], 0.f};
+	flow.pixel_flow_x_integral = pixel_flow_rotated(0);
+	flow.pixel_flow_y_integral = pixel_flow_rotated(1);
+
+	// rotate measurements in yaw from sensor frame to body frame
+	const matrix::Vector3f gyro_flow_rotated = _rotation * matrix::Vector3f{msg.rate_gyro_integral[0], msg.rate_gyro_integral[1], 0.f};
+	flow.gyro_x_rate_integral = gyro_flow_rotated(0);
+	flow.gyro_y_rate_integral = gyro_flow_rotated(1);
 
 	flow.quality = msg.quality;
 	flow.max_flow_rate = 5.0f;       // Datasheet: 7.4 rad/s

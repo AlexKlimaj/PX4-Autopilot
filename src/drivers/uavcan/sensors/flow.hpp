@@ -41,6 +41,9 @@
 
 #include <com/hex/equipment/flow/Measurement.hpp>
 
+#include <conversion/rotation.h>
+#include <lib/parameters/param.h>
+
 class UavcanFlowBridge : public UavcanSensorBridgeBase
 {
 public:
@@ -63,4 +66,5 @@ private:
 
 	uavcan::Subscriber<com::hex::equipment::flow::Measurement, FlowCbBinder> _sub_flow;
 
+	matrix::Dcmf	_rotation;
 };
