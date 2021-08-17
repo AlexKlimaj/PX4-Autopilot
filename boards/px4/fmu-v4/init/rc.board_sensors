@@ -49,7 +49,7 @@ icm20602 -s -R 8 start
 usleep 10000 # this sleep was needed because there was some issues with back to back starutp on the same SPI bus for these two IMUs
 
 # ICM20948 internal SPI1
-icm20948 -s -R 8 -M start
+# icm20948 -s -R 8 -M start
 
 # BQ4050 on external I2C
 bq4050 start -X
