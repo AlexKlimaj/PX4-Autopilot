@@ -14,7 +14,7 @@ board_adc start
 pwm_out sensor_reset 50
 
 # # Internal SPI
-# ms5611 -s start
+ms5611 -s start
 
 # # hmc5883 internal SPI bus is rotated 90 deg yaw
 # if ! hmc5883 -T -s -R 2 start
@@ -51,5 +51,5 @@ usleep 10000 # this sleep was needed because there was some issues with back to 
 # ICM20948 internal SPI1
 icm20948 -s -R 8 -M start
 
-# DPS310 on SPI2
-dps310 -s start
+# BQ4050 on external I2C
+bq4050 start -X
