@@ -87,7 +87,8 @@ private:
 	void process_fixx(const uavcan::ReceivedDataStructure<FixType> &msg,
 			  uint8_t fix_type,
 			  const float (&pos_cov)[9], const float (&vel_cov)[9],
-			  const bool valid_pos_cov, const bool valid_vel_cov);
+			  const bool valid_pos_cov, const bool valid_vel_cov,
+			  const float heading, const float heading_offset);
 
 	void handleInjectDataTopic();
 	bool injectData(const uint8_t *data, size_t data_len);

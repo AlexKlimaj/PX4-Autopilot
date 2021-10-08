@@ -33,70 +33,77 @@
 
 #pragma once
 
-#include "UavcanSubscriberBase.hpp"
+#include "UavcanPublisherBase.hpp"
 
 #include <uavcan/equipment/gnss/RTCMStream.hpp>
 
-#include <uORB/Publication.hpp>
+#include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/gps_inject_data.h>
 
 namespace uavcannode
 {
 
-class RTCMStream;
-
-typedef uavcan::MethodBinder<RTCMStream *,
-	void (RTCMStream::*)(const uavcan::ReceivedDataStructure<uavcan::equipment::gnss::RTCMStream>&)>
-	RTCMStreamBinder;
-
-class RTCMStream :
-	public UavcanSubscriberBase,
-	private uavcan::Subscriber<uavcan::equipment::gnss::RTCMStream, RTCMStreamBinder>
+class RTCMStreamPub :
+	public UavcanPublisherBase,
+	public uORB::SubscriptionCallbackWorkItem,
+	private uavcan::Publisher<uavcan::equipment::gnss::RTCMStream>
 {
 public:
-	RTCMStream(uavcan::INode &node) :
-		UavcanSubscriberBase(uavcan::equipment::gnss::RTCMStream::DefaultDataTypeID),
-		uavcan::Subscriber<uavcan::equipment::gnss::RTCMStream, RTCMStreamBinder>(node)
+	RTCMStreamPub(px4::WorkItem *work_item, uavcan::INode &node) :
+		UavcanPublisherBase(uavcan::equipment::gnss::RTCMStream::DefaultDataTypeID),
+		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(gps_inject_data)),
+		uavcan::Publisher<uavcan::equipment::gnss::RTCMStream>(node)
 	{}
 
-	bool init()
+	void PrintInfo() override
 	{
-		if (start(RTCMStreamBinder(this, &RTCMStream::callback)) < 0) {
-			PX4_ERR("uavcan::equipment::gnss::RTCMStream subscription failed");
-			return false;
-		}
-
-		return true;
-	}
-
-	void PrintInfo() const override
-	{
-		printf("\t%s:%d -> %s\n",
-		       uavcan::equipment::gnss::RTCMStream::getDataTypeFullName(),
-		       uavcan::equipment::gnss::RTCMStream::DefaultDataTypeID,
-		       _gps_inject_data_pub.get_topic()->o_name);
-	}
-
-private:
-	void callback(const uavcan::ReceivedDataStructure<uavcan::equipment::gnss::RTCMStream> &msg)
-	{
-		// Don't republish a message from ourselves
-		if (msg.getSrcNodeID().get() != getNode().getNodeID().get()) {
-			gps_inject_data_s gps_inject_data{};
-
-			gps_inject_data.len = msg.data.size();
-
-			//gps_inject_data.flags = gps_rtcm_data_msg.flags;
-			memcpy(gps_inject_data.data, &msg.data[0], gps_inject_data.len);
-
-			gps_inject_data.timestamp = hrt_absolute_time();
-
-			gps_inject_data.device_id = msg.getSrcNodeID().get();
-
-			_gps_inject_data_pub.publish(gps_inject_data);
+		if (uORB::SubscriptionCallbackWorkItem::advertised()) {
+			printf("\t%s -> %s:%d\n",
+			       uORB::SubscriptionCallbackWorkItem::get_topic()->o_name,
+			       uavcan::equipment::gnss::RTCMStream::getDataTypeFullName(),
+			       id());
 		}
 	}
 
-	uORB::Publication<gps_inject_data_s> _gps_inject_data_pub{ORB_ID(gps_inject_data)};
+	void BroadcastAnyUpdates() override
+	{
+		using uavcan::equipment::gnss::RTCMStream;
+
+		// gps_inject_data -> uavcan::equipment::gnss::RTCMStream
+		gps_inject_data_s inject_data;
+
+		if (uORB::SubscriptionCallbackWorkItem::update(&inject_data)) {
+			// Prevent republishing rtcm data we received from uavcan
+			if (inject_data.device_id > uavcan::NodeID::Max) {
+				uavcan::equipment::gnss::RTCMStream rtcmstream{};
+
+				rtcmstream.protocol_id = RTCMStream::PROTOCOL_ID_RTCM3;
+
+				const size_t capacity = rtcmstream.data.capacity();
+				size_t written = 0;
+				int result = 0;
+
+				while ((result >= 0) && written < inject_data.len) {
+					size_t chunk_size = inject_data.len - written;
+
+					if (chunk_size > capacity) {
+						chunk_size = capacity;
+					}
+
+					for (size_t i = 0; i < chunk_size; ++i) {
+						rtcmstream.data.push_back(inject_data.data[written]);
+						written += 1;
+					}
+
+					result = uavcan::Publisher<uavcan::equipment::gnss::RTCMStream>::broadcast(rtcmstream);
+
+					// ensure callback is registered
+					uORB::SubscriptionCallbackWorkItem::registerCallback();
+
+					rtcmstream.data.clear();
+				}
+			}
+		}
+	}
 };
 } // namespace uavcannode

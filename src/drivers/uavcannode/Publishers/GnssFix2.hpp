@@ -118,6 +118,21 @@ public:
 			fix2.covariance.push_back(gps.s_variance_m_s);
 			fix2.covariance.push_back(gps.s_variance_m_s);
 
+			uavcan::equipment::gnss::ECEFPositionVelocity ecefpositionvelocity{};
+			ecefpositionvelocity.velocity_xyz[0] = NAN;
+			ecefpositionvelocity.velocity_xyz[1] = NAN;
+
+			// Use ecef_position_velocity for now... There is no heading field
+			if (!isnan(gps.heading)) {
+				ecefpositionvelocity.velocity_xyz[0] = gps.heading;
+
+				if (!isnan(gps.heading_offset)) {
+					ecefpositionvelocity.velocity_xyz[1] = gps.heading_offset;
+				}
+
+				fix2.ecef_position_velocity.push_back(ecefpositionvelocity);
+			}
+
 			uavcan::Publisher<uavcan::equipment::gnss::Fix2>::broadcast(fix2);
 
 			// ensure callback is registered

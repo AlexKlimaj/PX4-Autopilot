@@ -83,7 +83,10 @@ PARAM_DEFINE_INT32(GPS_UBX_DYNMODEL, 7);
  * @min 0
  * @max 1
  * @value 0 Default
- * @value 1 Heading
+ * @value 1 Heading (Rover With Moving Base)
+ * @value 2 Moving Base
+ * @value 3 Heading (Rover With Moving Base) Using UART1 at 921600
+ * @value 4 Moving Base Using UART1 at 921600
  *
  * @reboot_required true
  * @group GPS
@@ -95,7 +98,6 @@ PARAM_DEFINE_INT32(GPS_UBX_MODE, 0);
  * Heading/Yaw offset for dual antenna GPS
  *
  * Heading offset angle for dual antenna GPS setups that support heading estimation.
- * (currently only for the Trimble MB-Two).
  *
  * Set this to 0 if the antennas are parallel to the forward-facing direction of the vehicle and the first antenna is in
  * front. The offset angle increases clockwise.

@@ -134,7 +134,7 @@ UavcanGnssBridge::gnss_fix_sub_cb(const uavcan::ReceivedDataStructure<uavcan::eq
 	float vel_cov[9];
 	msg.velocity_covariance.unpackSquareMatrix(vel_cov);
 
-	process_fixx(msg, fix_type, pos_cov, vel_cov, valid_pos_cov, valid_vel_cov);
+	process_fixx(msg, fix_type, pos_cov, vel_cov, valid_pos_cov, valid_vel_cov, NAN, NAN);
 }
 
 void
@@ -274,14 +274,27 @@ UavcanGnssBridge::gnss_fix2_sub_cb(const uavcan::ReceivedDataStructure<uavcan::e
 		}
 	}
 
-	process_fixx(msg, fix_type, pos_cov, vel_cov, valid_covariances, valid_covariances);
+	float heading = NAN;
+	float heading_offset = NAN;
+
+	// Use ecef_position_velocity for now... There is no heading field
+	if (!msg.ecef_position_velocity.empty()) {
+		heading = msg.ecef_position_velocity[0].velocity_xyz[0];
+
+		if (!isnan(msg.ecef_position_velocity[0].velocity_xyz[1])) {
+			heading_offset = msg.ecef_position_velocity[0].velocity_xyz[1];
+		}
+	}
+
+	process_fixx(msg, fix_type, pos_cov, vel_cov, valid_covariances, valid_covariances, heading, heading_offset);
 }
 
 template <typename FixType>
 void UavcanGnssBridge::process_fixx(const uavcan::ReceivedDataStructure<FixType> &msg,
 				    uint8_t fix_type,
 				    const float (&pos_cov)[9], const float (&vel_cov)[9],
-				    const bool valid_pos_cov, const bool valid_vel_cov)
+				    const bool valid_pos_cov, const bool valid_vel_cov,
+				    const float heading, const float heading_offset)
 {
 	sensor_gps_s report{};
 	report.device_id = get_device_id();
@@ -407,8 +420,8 @@ void UavcanGnssBridge::process_fixx(const uavcan::ReceivedDataStructure<FixType>
 		report.vdop = msg.pdop;
 	}
 
-	report.heading = NAN;
-	report.heading_offset = NAN;
+	report.heading = heading;
+	report.heading_offset = heading_offset;
 
 	publish(msg.getSrcNodeID().get(), &report);
 }

@@ -90,7 +90,7 @@ private:
 					msg.yaw = 36000; // Use 36000 for north.
 
 				} else {
-					msg.yaw = math::degrees(gps.heading) * 100.f; // centidegrees
+					msg.yaw = math::degrees(matrix::wrap_2pi(gps.heading)) * 100.0f; // centidegrees
 				}
 			}
 

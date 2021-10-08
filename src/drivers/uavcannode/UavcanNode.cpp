@@ -46,6 +46,7 @@
 #include "Publishers/MagneticFieldStrength2.hpp"
 #include "Publishers/RangeSensorMeasurement.hpp"
 #include "Publishers/RawAirData.hpp"
+#include "Publishers/RTCMStream.hpp"
 #include "Publishers/SafetyButton.hpp"
 #include "Publishers/StaticPressure.hpp"
 #include "Publishers/StaticTemperature.hpp"
@@ -303,6 +304,7 @@ int UavcanNode::init(uavcan::NodeID node_id, UAVCAN_DRIVER::BusEvent &bus_events
 	_publisher_list.add(new MagneticFieldStrength2(this, _node));
 	_publisher_list.add(new RangeSensorMeasurement(this, _node));
 	_publisher_list.add(new RawAirData(this, _node));
+	_publisher_list.add(new RTCMStreamPub(this, _node));
 	_publisher_list.add(new SafetyButton(this, _node));
 	_publisher_list.add(new StaticPressure(this, _node));
 	_publisher_list.add(new StaticTemperature(this, _node));
