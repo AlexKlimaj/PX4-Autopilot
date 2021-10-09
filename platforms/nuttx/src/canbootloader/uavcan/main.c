@@ -996,10 +996,10 @@ static int autobaud_and_get_dynamic_node_id(bl_timer_id tboot, can_speed_t *spee
 		}
 
 		board_indicate(allocation_start);
-#if defined(DEBUG_APPLICATION_INPLACE)
-		*node_id = 125;
-		return rv;
-#endif
+// #if defined(DEBUG_APPLICATION_INPLACE)
+// 		*node_id = 125;
+// 		return rv;
+// #endif
 		rv = get_dynamic_node_id(tboot, node_id);
 
 		if (rv != CAN_BOOT_TIMEOUT) {
