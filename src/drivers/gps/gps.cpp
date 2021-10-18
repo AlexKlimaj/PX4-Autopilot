@@ -726,8 +726,16 @@ GPS::run()
 				ubx_mode = GPSDriverUBX::UBXMode::MovingBase;
 			}
 
+		} else if (gps_ubx_mode == 2) {
+			ubx_mode = GPSDriverUBX::UBXMode::MovingBase;
+
 		} else if (gps_ubx_mode == 3) {
-			ubx_mode = GPSDriverUBX::UBXMode::RoverWithMovingBaseUART1;
+			if (_instance == Instance::Main) {
+				ubx_mode = GPSDriverUBX::UBXMode::RoverWithMovingBaseUART1;
+
+			} else {
+				ubx_mode = GPSDriverUBX::UBXMode::MovingBaseUART1;
+			}
 
 		} else if (gps_ubx_mode == 4) {
 			ubx_mode = GPSDriverUBX::UBXMode::MovingBaseUART1;
@@ -1139,14 +1147,33 @@ GPS::publishRTCMCorrections(uint8_t *data, size_t len)
 {
 	gps_inject_data_s gps_inject_data{};
 
-	gps_inject_data.len = len;
-
-	//gps_inject_data.flags = gps_rtcm_data_msg.flags;
-	memcpy(gps_inject_data.data, data, gps_inject_data.len);
-
 	gps_inject_data.timestamp = hrt_absolute_time();
 	gps_inject_data.device_id = get_device_id();
-	_gps_inject_data_pub.publish(gps_inject_data);
+
+	if (len > (sizeof(gps_inject_data.data)/sizeof(gps_inject_data.data[0]))) {
+		gps_inject_data.flags = 1; //LSB: 1=fragmented
+
+	} else {
+		gps_inject_data.flags = 0;
+	}
+
+	size_t written = 0;
+
+	while (written < len) {
+
+		if (gps_inject_data.flags == 1) {
+			gps_inject_data.len = (sizeof(gps_inject_data.data)/sizeof(gps_inject_data.data[0])) - written;
+
+		} else {
+			gps_inject_data.len = len;
+		}
+
+		memcpy(gps_inject_data.data, &data[written], gps_inject_data.len);
+
+		_gps_inject_data_pub.publish(gps_inject_data);
+
+		written = written + gps_inject_data.len;
+	}
 }
 
 int
