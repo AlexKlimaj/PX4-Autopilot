@@ -1150,7 +1150,7 @@ GPS::publishRTCMCorrections(uint8_t *data, size_t len)
 	gps_inject_data.timestamp = hrt_absolute_time();
 	gps_inject_data.device_id = get_device_id();
 
-	if (len > (sizeof(gps_inject_data.data)/sizeof(gps_inject_data.data[0]))) {
+	if (len > (sizeof(gps_inject_data.data) / sizeof(gps_inject_data.data[0]))) {
 		gps_inject_data.flags = 1; //LSB: 1=fragmented
 
 	} else {
@@ -1162,7 +1162,7 @@ GPS::publishRTCMCorrections(uint8_t *data, size_t len)
 	while (written < len) {
 
 		if (gps_inject_data.flags == 1) {
-			gps_inject_data.len = (sizeof(gps_inject_data.data)/sizeof(gps_inject_data.data[0])) - written;
+			gps_inject_data.len = (sizeof(gps_inject_data.data) / sizeof(gps_inject_data.data[0])) - written;
 
 		} else {
 			gps_inject_data.len = len;
