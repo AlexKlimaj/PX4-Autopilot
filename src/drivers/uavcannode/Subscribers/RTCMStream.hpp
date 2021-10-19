@@ -84,6 +84,8 @@ private:
 		if (msg.getSrcNodeID().get() != getNode().getNodeID().get()) {
 			gps_inject_data_s gps_inject_data{};
 
+			static_assert(sizeof(gps_inject_data.data) >= sizeof(msg.data), "Buffer size too small");
+
 			gps_inject_data.len = msg.data.size();
 
 			//gps_inject_data.flags = gps_rtcm_data_msg.flags;
