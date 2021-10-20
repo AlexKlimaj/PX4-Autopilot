@@ -53,7 +53,9 @@ public:
 		UavcanPublisherBase(uavcan::equipment::gnss::Fix2::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(sensor_gps)),
 		uavcan::Publisher<uavcan::equipment::gnss::Fix2>(node)
-	{}
+	{
+		this->setPriority(uavcan::TransferPriority::OneLowerThanHighest);
+	}
 
 	void PrintInfo() override
 	{

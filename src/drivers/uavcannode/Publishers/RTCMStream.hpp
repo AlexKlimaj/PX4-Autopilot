@@ -53,7 +53,9 @@ public:
 		UavcanPublisherBase(uavcan::equipment::gnss::RTCMStream::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(gps_inject_data)),
 		uavcan::Publisher<uavcan::equipment::gnss::RTCMStream>(node)
-	{}
+	{
+		this->setPriority(uavcan::TransferPriority::NumericallyMax);
+	}
 
 	void PrintInfo() override
 	{
