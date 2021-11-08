@@ -35,7 +35,7 @@
 
 #include "UavcanPublisherBase.hpp"
 
-#include <uavcan/equipment/gnss/Fix2.hpp>
+#include <ardupilot/gnss/Heading.hpp>
 
 #include <uORB/SubscriptionCallback.hpp>
 #include <uORB/topics/sensor_gps.h>
@@ -43,18 +43,18 @@
 namespace uavcannode
 {
 
-class GnssFix2 :
+class Heading :
 	public UavcanPublisherBase,
 	public uORB::SubscriptionCallbackWorkItem,
-	private uavcan::Publisher<uavcan::equipment::gnss::Fix2>
+	private uavcan::Publisher<ardupilot::gnss::Heading>
 {
 public:
-	GnssFix2(px4::WorkItem *work_item, uavcan::INode &node) :
-		UavcanPublisherBase(uavcan::equipment::gnss::Fix2::DefaultDataTypeID),
+	Heading(px4::WorkItem *work_item, uavcan::INode &node) :
+		UavcanPublisherBase(ardupilot::gnss::Heading::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(sensor_gps)),
-		uavcan::Publisher<uavcan::equipment::gnss::Fix2>(node)
+		uavcan::Publisher<ardupilot::gnss::Heading>(node)
 	{
-		this->setPriority(uavcan::TransferPriority::OneLowerThanHighest);
+		this->setPriority(uavcan::TransferPriority::Default);
 	}
 
 	void PrintInfo() override
@@ -62,68 +62,40 @@ public:
 		if (uORB::SubscriptionCallbackWorkItem::advertised()) {
 			printf("\t%s -> %s:%d\n",
 			       uORB::SubscriptionCallbackWorkItem::get_topic()->o_name,
-			       uavcan::equipment::gnss::Fix2::getDataTypeFullName(),
+			       ardupilot::gnss::Heading::getDataTypeFullName(),
 			       id());
 		}
 	}
 
 	void BroadcastAnyUpdates() override
 	{
-		using uavcan::equipment::gnss::Fix2;
+		using ardupilot::gnss::Heading;
 
-		// sensor_gps -> uavcan::equipment::gnss::Fix2
+		// sensor_gps -> ardupilot::gnss::Heading
 		sensor_gps_s gps;
 
 		if (uORB::SubscriptionCallbackWorkItem::update(&gps)) {
-			uavcan::equipment::gnss::Fix2 fix2{};
 
-			fix2.gnss_time_standard = fix2.GNSS_TIME_STANDARD_UTC;
-			fix2.gnss_timestamp.usec = gps.time_utc_usec;
-			fix2.latitude_deg_1e8 = (int64_t)gps.lat * 10;
-			fix2.longitude_deg_1e8 = (int64_t)gps.lon * 10;
-			fix2.height_msl_mm = gps.alt;
-			fix2.height_ellipsoid_mm = gps.alt_ellipsoid;
-			fix2.status = gps.fix_type;
-			fix2.ned_velocity[0] = gps.vel_n_m_s;
-			fix2.ned_velocity[1] = gps.vel_e_m_s;
-			fix2.ned_velocity[2] = gps.vel_d_m_s;
-			fix2.pdop = gps.hdop > gps.vdop ? gps.hdop :
-				    gps.vdop; // Use pdop for both hdop and vdop since uavcan v0 spec does not support them
-			fix2.sats_used = gps.satellites_used;
+			if (!isnan(gps.heading)) {
+				ardupilot::gnss::Heading heading{};
 
-			fix2.mode = Fix2::MODE_SINGLE;
-			fix2.sub_mode = 0;
+				heading.heading_valid = true;
+				heading.heading_rad = gps.heading;
 
-			switch (fix2.status) {
-			case 4:
-				fix2.mode = Fix2::MODE_DGPS;
-				break;
+				if (!isnan(gps.heading_accuracy)) {
+					heading.heading_accuracy_valid = true;
+					heading.heading_accuracy_rad = gps.heading_accuracy;
+				}
 
-			case 5:
-				fix2.mode = Fix2::MODE_RTK;
-				fix2.sub_mode = Fix2::SUB_MODE_RTK_FLOAT;
-				break;
+				if (!isnan(gps.heading_offset)) {
+					heading.heading_rad = matrix::wrap_pi(heading.heading_rad + gps.heading_offset);
+				}
 
-			case 6:
-				fix2.mode = Fix2::MODE_RTK;
-				fix2.sub_mode = Fix2::SUB_MODE_RTK_FIXED;
-				break;
+				uavcan::Publisher<ardupilot::gnss::Heading>::broadcast(heading);
+
+				// ensure callback is registered
+				uORB::SubscriptionCallbackWorkItem::registerCallback();
 			}
-
-			// Diagonal matrix
-			// position variances -- Xx, Yy, Zz
-			fix2.covariance.push_back(gps.eph);
-			fix2.covariance.push_back(gps.eph);
-			fix2.covariance.push_back(gps.epv);
-			// velocity variance -- Vxx, Vyy, Vzz
-			fix2.covariance.push_back(gps.s_variance_m_s);
-			fix2.covariance.push_back(gps.s_variance_m_s);
-			fix2.covariance.push_back(gps.s_variance_m_s);
-
-			uavcan::Publisher<uavcan::equipment::gnss::Fix2>::broadcast(fix2);
-
-			// ensure callback is registered
-			uORB::SubscriptionCallbackWorkItem::registerCallback();
 		}
 	}
 };

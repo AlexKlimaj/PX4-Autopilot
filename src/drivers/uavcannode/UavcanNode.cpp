@@ -43,6 +43,7 @@
 #include "Publishers/BatteryInfo.hpp"
 #include "Publishers/FlowMeasurement.hpp"
 #include "Publishers/GnssFix2.hpp"
+#include "Publishers/Heading.hpp"
 #include "Publishers/MagneticFieldStrength2.hpp"
 #include "Publishers/RangeSensorMeasurement.hpp"
 #include "Publishers/RawAirData.hpp"
@@ -301,6 +302,7 @@ int UavcanNode::init(uavcan::NodeID node_id, UAVCAN_DRIVER::BusEvent &bus_events
 	_publisher_list.add(new BatteryInfo(this, _node));
 	_publisher_list.add(new FlowMeasurement(this, _node));
 	_publisher_list.add(new GnssFix2(this, _node));
+	_publisher_list.add(new Heading(this, _node));
 	_publisher_list.add(new MagneticFieldStrength2(this, _node));
 	_publisher_list.add(new RangeSensorMeasurement(this, _node));
 	_publisher_list.add(new RawAirData(this, _node));
