@@ -45,6 +45,8 @@
 #define LONG_RANGE_MODE_HZ 25
 #define SHORT_RANGE_MODE_HZ 50
 
+#define RESET_TIME_US 10000000
+
 #include "s2pi.h"
 #include "timer.h"
 #include "argus_hal_test.h"
@@ -114,6 +116,8 @@ void AFBRS50::ProcessMeasurement(void *data)
 			_current_distance = result_m;
 			_current_quality = quality;
 			_px4_rangefinder.update(((res.TimeStamp.sec * 1000000ULL) + res.TimeStamp.usec), result_m, quality);
+			_last_valid_measurement_time = ((res.TimeStamp.sec * 1000000ULL) + res.TimeStamp.usec);
+
 		}
 	}
 }
@@ -276,6 +280,11 @@ void AFBRS50::Run()
 			// currently handeled by measurement_ready_callback
 
 			UpdateMode();
+
+			if ((hrt_absolute_time() - _last_valid_measurement_time) > RESET_TIME_US) {
+				_state = STATE::RESET;
+				ScheduleNow();
+			}
 		}
 		break;
 
@@ -283,6 +292,33 @@ void AFBRS50::Run()
 			Argus_StopMeasurementTimer(_hnd);
 			Argus_Deinit(_hnd);
 			Argus_DestroyHandle(_hnd);
+		}
+		break;
+
+	case STATE::RESET: {
+			_num_of_timeout_resets++;
+			PX4_ERR("Measurement timeout, resetting. number of resets: %u", (uint)_num_of_timeout_resets);
+
+			status_t status = Argus_Abort(_hnd);
+			PX4_ERR("Argus_Abort status: %i", (int)status);
+
+			status = Argus_StopMeasurementTimer(_hnd);
+			PX4_ERR("Argus_StopMeasurementTimer status: %i", (int)status);
+
+			S2PI_Reset(BROADCOM_AFBR_S50_S2PI_SPI_BUS, SPI_BAUD_RATE);
+
+			status = Argus_Reinit(_hnd);
+
+			if (status == STATUS_OK) {
+				_state = STATE::CONFIGURE;
+			} else {
+				PX4_ERR("Argus_Reinit not okay: %i", (int)status);
+				_state = STATE::RESET;
+			}
+
+			_last_valid_measurement_time = hrt_absolute_time();
+
+			ScheduleNow();
 		}
 		break;
 
@@ -426,6 +462,7 @@ void AFBRS50::get_info()
 	PX4_INFO_RAW("mode: %d\n", current_mode);
 	PX4_INFO_RAW("dfm mode: %d\n", dfm_mode);
 	PX4_INFO_RAW("rate: %u Hz\n", (uint)(1000000 / _measure_interval));
+	PX4_INFO_RAW("number of timeout resets: %u\n", (uint)_num_of_timeout_resets);
 }
 
 namespace afbrs50

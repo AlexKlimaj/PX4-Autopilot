@@ -99,6 +99,18 @@ status_t S2PI_Init(s2pi_slave_t defaultSlave, uint32_t baudRate_Bps)
 	return S2PI_SetBaudRate(baudRate_Bps);
 }
 
+status_t S2PI_Reset(s2pi_slave_t defaultSlave, uint32_t baudRate_Bps)
+{
+	px4_arch_configgpio(BROADCOM_AFBR_S50_S2PI_CS);
+
+	s2pi_.spidev = px4_spibus_initialize(BROADCOM_AFBR_S50_S2PI_SPI_BUS);
+
+	px4_arch_configgpio(BROADCOM_AFBR_S50_S2PI_IRQ);
+	px4_arch_gpiosetevent(BROADCOM_AFBR_S50_S2PI_IRQ, false, true, false, &gpio_falling_edge, NULL);
+
+	return S2PI_SetBaudRate(baudRate_Bps);
+}
+
 /*!***************************************************************************
 * @brief Returns the status of the SPI module.
 *

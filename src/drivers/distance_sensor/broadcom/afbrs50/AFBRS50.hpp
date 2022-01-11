@@ -92,7 +92,8 @@ private:
 		TEST,
 		CONFIGURE,
 		COLLECT,
-		STOP
+		STOP,
+		RESET
 	} _state{STATE::CONFIGURE};
 
 	PX4Rangefinder _px4_rangefinder;
@@ -108,4 +109,6 @@ private:
 	const float _long_range_threshold = 6.0; //meters
 	float _max_distance;
 	float _min_distance;
+	uint16_t _num_of_timeout_resets = 0;
+	hrt_abstime _last_valid_measurement_time = hrt_absolute_time();
 };

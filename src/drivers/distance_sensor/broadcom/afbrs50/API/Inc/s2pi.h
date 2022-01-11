@@ -91,6 +91,21 @@ enum S2PISlaves {
 status_t S2PI_Init(s2pi_slave_t defaultSlave, uint32_t baudRate_Bps);
 
 /*!***************************************************************************
+ * @brief	Resets the S2PI module.
+ *
+ * @details	Setup the board as a S2PI master, this also sets up up the S2PI pins.
+ * 			The SPI interface is initialized with the corresponding default
+ * 			SPI slave (i.e. CS and IRQ lines) and the default baud rate.
+ *
+ * @param	defaultSlave The default SPI slave to be addressed right after
+ * 						 module initialization.
+ * @param	baudRate_Bps The default SPI baud rate in bauds-per-second.
+ *
+ * @return 	Returns the \link #status_t status\endlink (#STATUS_OK on success).
+ *****************************************************************************/
+status_t S2PI_Reset(s2pi_slave_t defaultSlave, uint32_t baudRate_Bps);
+
+/*!***************************************************************************
  * @brief	Sets the SPI baud rate in bps.
  * @param	baudRate_Bps The default SPI baud rate in bauds-per-second.
  * @return 	Returns the \link #status_t status\endlink (#STATUS_OK on success).
