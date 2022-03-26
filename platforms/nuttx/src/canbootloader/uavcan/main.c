@@ -1184,6 +1184,13 @@ __EXPORT int main(int argc, char *argv[])
 
 
 	} else {
+		// If app is already valid, jump straight to app
+		if ((bootloader.app_valid) && (bootloader.fw_image_descriptor->major_version > 0)) {
+			common.node_id = 0; // For normal boots there is nothing connected, we need to do dynamic ID allocation
+			goto boot;
+		}
+
+		// Otherwise this is a bad/blank app and we need to be updated
 
 		/*
 		 * It is a regular boot, So we need to autobaud and get a node ID
