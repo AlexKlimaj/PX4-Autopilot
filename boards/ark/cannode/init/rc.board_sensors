@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# board sensors init
+#------------------------------------------------------------------------------
+gps start -d /dev/ttyS0 -p ubx
+
+icm42688p -R 0 -s start
