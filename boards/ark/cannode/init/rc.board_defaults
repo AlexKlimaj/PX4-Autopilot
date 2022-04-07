@@ -2,3 +2,6 @@
 #
 # board specific defaults
 #------------------------------------------------------------------------------
+pwm_out start
+
+control_allocator start
