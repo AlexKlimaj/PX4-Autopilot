@@ -69,9 +69,40 @@
 #include <px4_platform_common/init.h>
 #include <px4_platform/gpio.h>
 
+#include <drivers/drv_pwm_output.h>
+#include <px4_arch/io_timer.h>
+
 # if defined(FLASH_BASED_PARAMS)
 #  include <parameters/flashparams/flashfs.h>
 #endif
+
+/************************************************************************************
+ * Name: board_on_reset
+ *
+ * Description:
+ * Optionally provided function called on entry to board_system_reset
+ * It should perform any house keeping prior to the rest.
+ *
+ * status - 1 if resetting to boot loader
+ *          0 if just resetting
+ *
+ ************************************************************************************/
+__EXPORT void board_on_reset(int status)
+{
+	// Configure the GPIO pins to outputs and keep them low.
+	for (int i = 0; i < DIRECT_PWM_OUTPUT_CHANNELS; ++i) {
+		px4_arch_configgpio(io_timer_channel_get_gpio_output(i));
+	}
+
+	/*
+	 * On resets invoked from system (not boot) insure we establish a low
+	 * output state (discharge the pins) on PWM pins before they become inputs.
+	 */
+
+	if (status >= 0) {
+		up_mdelay(400);
+	}
+}
 
 /************************************************************************************
  * Name: stm32_boardinitialize
@@ -85,6 +116,9 @@
 
 __EXPORT void stm32_boardinitialize(void)
 {
+	// Reset all PWM to Low outputs.
+	board_on_reset(-1);
+
 	watchdog_init();
 
 	/* configure pins */
