@@ -62,7 +62,7 @@
 #define GPIO_TIM1_CH3         /* PA10 */  (GPIO_TIM1_CH3_1|GPIO_OPENDRAIN|GPIO_SPEED_2MHz)
 
 /* PWM Outputs */
-#define DIRECT_PWM_OUTPUT_CHANNELS  7 // Actually 8
+#define DIRECT_PWM_OUTPUT_CHANNELS  6 // Actually 8
 
 #define GPIO_TIM2_CH1_RESET   /* PA0  */  (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTA|GPIO_PIN0)
 #define GPIO_TIM2_CH2_RESET   /* PA1  */  (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTA|GPIO_PIN1)
@@ -85,7 +85,7 @@
 #define FLASH_BASED_PARAMS
 
 /* High-resolution timer */
-#define HRT_TIMER                    5  /* use timer 5 for the HRT */
+#define HRT_TIMER                    8  /* use timer 8 for the HRT */
 #define HRT_TIMER_CHANNEL            1  /* use capture/compare channel 1 */
 
 #define PX4_GPIO_INIT_LIST { \
