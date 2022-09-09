@@ -53,7 +53,7 @@ public:
 	MovingBaselineDataPub(px4::WorkItem *work_item, uavcan::INode &node) :
 		UavcanPublisherBase(ardupilot::gnss::MovingBaselineData::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(gps_inject_data)),
-		uavcan::Publisher<ardupilot::gnss::MovingBaselineData>(node)
+		uavcan::Publisher<ardupilot::gnss::MovingBaselineData>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::NumericallyMax);
 	}

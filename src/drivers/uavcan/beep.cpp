@@ -42,7 +42,7 @@
 #include <lib/circuit_breaker/circuit_breaker.h>
 
 UavcanBeepController::UavcanBeepController(uavcan::INode &node) :
-	_beep_pub(node),
+	_beep_pub(node, true),
 	_timer(node)
 {
 	_beep_pub.setPriority(uavcan::TransferPriority::MiddleLower);

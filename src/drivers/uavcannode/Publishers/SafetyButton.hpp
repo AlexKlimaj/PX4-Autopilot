@@ -52,7 +52,7 @@ public:
 	SafetyButton(px4::WorkItem *work_item, uavcan::INode &node) :
 		UavcanPublisherBase(ardupilot::indication::Button::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(safety_button)),
-		uavcan::Publisher<ardupilot::indication::Button>(node)
+		uavcan::Publisher<ardupilot::indication::Button>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::Default);
 	}

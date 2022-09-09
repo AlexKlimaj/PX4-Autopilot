@@ -53,7 +53,7 @@ public:
 	FlowMeasurement(px4::WorkItem *work_item, uavcan::INode &node) :
 		UavcanPublisherBase(com::hex::equipment::flow::Measurement::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(vehicle_optical_flow)),
-		uavcan::Publisher<com::hex::equipment::flow::Measurement>(node)
+		uavcan::Publisher<com::hex::equipment::flow::Measurement>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::Default);
 	}

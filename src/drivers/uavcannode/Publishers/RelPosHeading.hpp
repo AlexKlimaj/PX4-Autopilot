@@ -53,7 +53,7 @@ public:
 	RelPosHeadingPub(px4::WorkItem *work_item, uavcan::INode &node) :
 		UavcanPublisherBase(ardupilot::gnss::RelPosHeading::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(sensor_gnss_relative)),
-		uavcan::Publisher<ardupilot::gnss::RelPosHeading>(node)
+		uavcan::Publisher<ardupilot::gnss::RelPosHeading>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::NumericallyMax);
 	}

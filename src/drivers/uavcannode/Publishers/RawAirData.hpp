@@ -52,7 +52,7 @@ public:
 	RawAirData(px4::WorkItem *work_item, uavcan::INode &node) :
 		UavcanPublisherBase(uavcan::equipment::air_data::RawAirData::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(differential_pressure)),
-		uavcan::Publisher<uavcan::equipment::air_data::RawAirData>(node)
+		uavcan::Publisher<uavcan::equipment::air_data::RawAirData>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::Default);
 	}

@@ -52,7 +52,7 @@ public:
 	StaticPressure(px4::WorkItem *work_item, uavcan::INode &node) :
 		UavcanPublisherBase(uavcan::equipment::air_data::StaticPressure::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(sensor_baro)),
-		uavcan::Publisher<uavcan::equipment::air_data::StaticPressure>(node)
+		uavcan::Publisher<uavcan::equipment::air_data::StaticPressure>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::Default);
 	}

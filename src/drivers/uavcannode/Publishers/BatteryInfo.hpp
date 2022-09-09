@@ -52,7 +52,7 @@ public:
 	BatteryInfo(px4::WorkItem *work_item, uavcan::INode &node) :
 		UavcanPublisherBase(uavcan::equipment::power::BatteryInfo::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(battery_status)),
-		uavcan::Publisher<uavcan::equipment::power::BatteryInfo>(node)
+		uavcan::Publisher<uavcan::equipment::power::BatteryInfo>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::MiddleLower);
 	}

@@ -54,7 +54,7 @@ public:
 	GnssFix2(px4::WorkItem *work_item, uavcan::INode &node) :
 		UavcanPublisherBase(uavcan::equipment::gnss::Fix2::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(sensor_gps)),
-		uavcan::Publisher<uavcan::equipment::gnss::Fix2>(node)
+		uavcan::Publisher<uavcan::equipment::gnss::Fix2>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::OneLowerThanHighest);
 	}

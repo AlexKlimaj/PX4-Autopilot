@@ -40,7 +40,7 @@
 #include "safety_state.hpp"
 
 UavcanSafetyState::UavcanSafetyState(uavcan::INode &node) :
-	_safety_state_pub(node),
+	_safety_state_pub(node, true),
 	_timer(node)
 {
 	_safety_state_pub.setPriority(uavcan::TransferPriority::Default);

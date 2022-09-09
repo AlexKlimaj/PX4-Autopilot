@@ -52,7 +52,7 @@ public:
 	MagneticFieldStrength2(px4::WorkItem *work_item, uavcan::INode &node) :
 		UavcanPublisherBase(uavcan::equipment::ahrs::MagneticFieldStrength2::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(vehicle_magnetometer)),
-		uavcan::Publisher<uavcan::equipment::ahrs::MagneticFieldStrength2>(node)
+		uavcan::Publisher<uavcan::equipment::ahrs::MagneticFieldStrength2>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::Default);
 	}

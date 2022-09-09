@@ -36,7 +36,7 @@
 UavcanRGBController::UavcanRGBController(uavcan::INode &node) :
 	ModuleParams(nullptr),
 	_node(node),
-	_uavcan_pub_lights_cmd(node),
+	_uavcan_pub_lights_cmd(node, true),
 	_timer(node)
 {
 	_uavcan_pub_lights_cmd.setPriority(uavcan::TransferPriority::Lowest);

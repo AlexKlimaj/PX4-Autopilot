@@ -39,7 +39,7 @@ using namespace time_literals;
 
 UavcanServoController::UavcanServoController(uavcan::INode &node) :
 	_node(node),
-	_uavcan_pub_array_cmd(node)
+	_uavcan_pub_array_cmd(node, true)
 {
 	_uavcan_pub_array_cmd.setPriority(UAVCAN_COMMAND_TRANSFER_PRIORITY);
 }

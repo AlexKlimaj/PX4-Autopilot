@@ -47,7 +47,7 @@ using namespace time_literals;
 
 UavcanEscController::UavcanEscController(uavcan::INode &node) :
 	_node(node),
-	_uavcan_pub_raw_cmd(node),
+	_uavcan_pub_raw_cmd(node, true),
 	_uavcan_sub_status(node)
 {
 	_uavcan_pub_raw_cmd.setPriority(UAVCAN_COMMAND_TRANSFER_PRIORITY);

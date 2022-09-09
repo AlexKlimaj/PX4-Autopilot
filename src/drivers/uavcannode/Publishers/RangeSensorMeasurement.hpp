@@ -52,7 +52,7 @@ public:
 	RangeSensorMeasurement(px4::WorkItem *work_item, uavcan::INode &node, uint8_t instance = 0) :
 		UavcanPublisherBase(uavcan::equipment::range_sensor::Measurement::DefaultDataTypeID),
 		uORB::SubscriptionCallbackWorkItem(work_item, ORB_ID(distance_sensor), instance),
-		uavcan::Publisher<uavcan::equipment::range_sensor::Measurement>(node)
+		uavcan::Publisher<uavcan::equipment::range_sensor::Measurement>(node, true)
 	{
 		this->setPriority(uavcan::TransferPriority::Default);
 	}

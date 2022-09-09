@@ -42,7 +42,7 @@
 
 UavcanHardpointController::UavcanHardpointController(uavcan::INode &node) :
 	_node(node),
-	_uavcan_pub_raw_cmd(node),
+	_uavcan_pub_raw_cmd(node, true),
 	_timer(node)
 {
 	_uavcan_pub_raw_cmd.setPriority(uavcan::TransferPriority::MiddleLower);
