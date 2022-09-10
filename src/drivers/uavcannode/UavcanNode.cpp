@@ -109,6 +109,8 @@ UavcanNode::UavcanNode(CanInitHelper *can_init, uint32_t bitrate, uavcan::ICanDr
 	_can = can_init;
 	_bitrate = bitrate;
 
+	_node.disableCanFd();
+
 	if (res < 0) {
 		std::abort();
 	}

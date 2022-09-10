@@ -90,9 +90,9 @@ UavcanNode::UavcanNode(uavcan::ICanDriver &can_driver, uavcan::ISystemClock &sys
 	_node_status_monitor(_node),
 	_node_info_retriever(_node),
 	_master_timer(_node),
-	_param_getset_client(_node),
-	_param_opcode_client(_node),
-	_param_restartnode_client(_node)
+	_param_getset_client(_node, force_std_can = true),
+	_param_opcode_client(_node, force_std_can = true),
+	_param_restartnode_client(_node, force_std_can = true)
 {
 	int res = pthread_mutex_init(&_node_mutex, nullptr);
 
