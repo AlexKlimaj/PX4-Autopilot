@@ -140,6 +140,8 @@ TEST_F(EkfFlowTest, resetToFlowVelocityInAir)
 
 	// THEN: estimated velocity should match simulated velocity
 	const Vector3f estimated_velocity = _ekf->getVelocity();
+	estimated_velocity.print();
+	simulated_velocity.print();
 	EXPECT_TRUE(isEqual(estimated_velocity, simulated_velocity))
 			<< "estimated vel = " << estimated_velocity(0) << ", "
 			<< estimated_velocity(1);
@@ -168,6 +170,7 @@ TEST_F(EkfFlowTest, resetToFlowVelocityOnGround)
 	_sensor_simulator._flow.setData(flow_sample);
 	_ekf_wrapper.enableFlowFusion();
 	_sensor_simulator.startFlow();
+	_sensor_simulator.startRangeFinder();
 	_sensor_simulator.runSeconds(1.0);
 
 	// THEN: estimated velocity should match simulated velocity
