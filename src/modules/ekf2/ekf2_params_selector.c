@@ -79,3 +79,23 @@ PARAM_DEFINE_FLOAT(EKF2_SEL_IMU_ACC, 1.0f);
  * @unit m/s
  */
 PARAM_DEFINE_FLOAT(EKF2_SEL_IMU_VEL, 2.0f);
+
+/**
+ * EKF2 selector starting IMU ID
+ *
+ * EKF2 selector starting IMU ID. This is the IMU that will be used first. If the IMU is faulty, the next best IMU will be used. If 0, the first IMU will be used.
+ *
+ * @group EKF2
+ * @min 0
+ */
+PARAM_DEFINE_INT32(EKF2_SEL_IMU_ID, 0);
+
+/**
+ * EKF2 selector starting Mag ID
+ *
+ * EKF2 selector starting Mag ID. This is the Mag that will be used first. If the Mag is faulty, the next best Mag will be used. If 0, the first Mag will be used.
+ *
+ * @group EKF2
+ * @min 0
+ */
+PARAM_DEFINE_INT32(EKF2_SEL_MAG_ID, 0);
