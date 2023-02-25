@@ -21,3 +21,5 @@ then
 fi
 
 afbrs50 start
+
+simple_can start
