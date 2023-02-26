@@ -67,7 +67,46 @@ void SimpleCan::Run()
 
 		_initialized = true;
 	}
+
+	distance_sensor_s distance_sensor;
+
+	while (_distance_sensor_sub.updated()) {
+		_distance_sensor_sub.copy(&distance_sensor);
+
+		// Pack and Transmit CAN message
+
+	}
+
+	sensor_optical_flow_s sensor_optical_flow;
+
+	while (_sensor_optical_flow_sub.updated()) {
+		_sensor_optical_flow_sub.copy(&sensor_optical_flow);
+
+		// Pack and Transmit CAN message
+	}
 }
+
+// int SimpleCan::transmit(const CanFrame &frame)
+// {
+// 	if (_fd < 0) {
+// 		PX4_INFO("fd < 0");
+// 		return -1;
+// 	}
+
+// 	struct can_msg_s transmit_msg;
+// 	transmit_msg.cm_hdr.ch_id = frame.extended_can_id;
+// 	transmit_msg.cm_hdr.ch_dlc = frame.payload_size;
+// 	memcpy(transmit_msg.cm_data, frame.payload, frame.payload_size);
+
+// 	const ssize_t nbytes = ::write(_fd, &transmit_msg, sizeof(transmit_msg));
+
+// 	if (nbytes < 0 || (size_t)nbytes < CAN_MSGLEN(0) || (size_t)nbytes > sizeof(transmit_msg)) {
+// 		PX4_INFO("error");
+// 		return -1;
+// 	}
+
+// 	return nbytes;
+// }
 
 // int16_t SimpleCan::receive(CanFrame *received_frame)
 // {
@@ -106,54 +145,6 @@ void SimpleCan::Run()
 
 // 	return 0;
 // }
-
-int16_t SimpleCan::transmit(const CanFrame *txf, int timeout_ms)
-{
-	if (_fd < 0) {
-		return -1;
-	}
-
-	struct pollfd fds {};
-
-	fds.fd = _fd;
-
-	fds.events |= POLLOUT;
-
-	const int poll_result = poll(&fds, 1, timeout_ms);
-
-	if (poll_result < 0) {
-		return -1;
-	}
-
-	if (poll_result == 0) {
-		return 0;
-	}
-
-	if ((fds.revents & POLLOUT) == 0) {
-		return -1;
-	}
-
-	struct can_msg_s *transmit_msg;
-
-	transmit_msg.cm_hdr.ch_id = txf.frame.extended_can_id;
-
-	transmit_msg.cm_hdr.ch_dlc = txf.frame.payload_size;
-
-	transmit_msg.cm_hdr.ch_extid = 1;
-
-	memcpy(transmit_msg.cm_data, txf.frame.payload, txf.frame.payload_size);
-
-	const size_t msg_len = CAN_MSGLEN(transmit_msg.cm_hdr.ch_dlc);
-
-	const ssize_t nbytes = ::write(_fd, &transmit_msg, msg_len);
-
-	if (nbytes < 0 || (size_t)nbytes != msg_len) {
-		return -1;
-	}
-
-	return 1;
-}
-
 
 int SimpleCan::start()
 {

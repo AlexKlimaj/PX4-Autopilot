@@ -114,5 +114,6 @@ param set-default SENS_MAG_RATE 100
 
 sensors start
 
-uavcannode start
+# uavcannode start
+simple_can start
 unset R

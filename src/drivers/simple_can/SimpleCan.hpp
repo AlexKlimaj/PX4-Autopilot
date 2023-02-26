@@ -39,8 +39,6 @@
 #include <nuttx/can/can.h>
 #include <arch/board/board.h>
 
-#include "stm32_can.h"
-
 #include <px4_platform_common/module.h>
 #include <px4_platform_common/px4_work_queue/ScheduledWorkItem.hpp>
 
@@ -75,7 +73,7 @@ public:
 	int start();
 
 	//int16_t receive(CanFrame *received_frame);
-	int16_t transmit(const CanFrame *txf, int timeout_ms);
+	int transmit(const CanFrame &frame);
 
 private:
 	static constexpr uint32_t SAMPLE_RATE{1000}; // samples per second (1ms)
