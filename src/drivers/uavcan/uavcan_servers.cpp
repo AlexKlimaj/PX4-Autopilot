@@ -76,6 +76,19 @@ UavcanServers::UavcanServers(uavcan::INode &node, uavcan::NodeInfoRetriever &nod
 
 int UavcanServers::init()
 {
+	// Wait until the sd card is available
+	struct stat st;
+	size_t max_tries = 100;
+	while (stat(UAVCAN_SD_ROOT_PATH, &st) != 0) {
+		usleep(100000);
+
+		if (--max_tries == 0) {
+			// Print the result of stat
+			PX4_ERR("SD card not available: stat(%s) failed: %d", UAVCAN_SD_ROOT_PATH, errno);
+			return -ENODEV;
+		}
+	}
+
 	/*
 	 * Initialize the fw version checker.
 	 * giving it its path
