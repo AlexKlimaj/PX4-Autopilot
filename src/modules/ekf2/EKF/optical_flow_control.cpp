@@ -236,6 +236,7 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 			if (flow_delayed) {
 				if (terrain_available) {
 					// Fuse optical flow LOS rate observations into the main filter only if height above ground has been updated recently
+					updateOptFlow(_aid_src_optical_flow);
 					fuseOptFlow();
 					_last_known_pos.xy() = _state.pos.xy();
 

@@ -215,8 +215,6 @@ void Ekf::resetVerticalPositionTo(const float new_vert_pos, float new_vert_pos_v
 	terrainHandleVerticalPositionReset(delta_z);
 #endif
 
-	_terrain_vpos -= delta_z;
-
 	// Reset the timout timer
 	_time_last_hgt_fuse = _time_delayed_us;
 }
