@@ -283,14 +283,7 @@ void Ekf::controlHaglFlowFusion()
 		return;
 	}
 
-	// Wait until the midpoint of the flow sample has fallen behind the fusion time horizon
-	bool flow_delayed = false;
-
 	if (_flow_data_ready) {
-		flow_delayed = (_time_delayed_us > (_flow_sample_delayed.time_us + uint32_t(1e6f * _flow_sample_delayed.dt) / 2));
-	}
-
-	if (_flow_data_ready && flow_delayed) {
 		updateOptFlow(_aid_src_terrain_optical_flow);
 
 		const bool continuing_conditions_passing = _control_status.flags.in_air

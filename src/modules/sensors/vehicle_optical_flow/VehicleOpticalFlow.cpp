@@ -320,11 +320,11 @@ void VehicleOpticalFlow::Run()
 					flow_vel.vel_ne[1] = flow_vel_ne(1);
 				}
 
-				// flow_uncompensated_integral
-				flow_xy_rad.copyTo(flow_vel.flow_uncompensated_integral);
+				const Vector2f flow_rate(flow_xy_rad * (1.f / flow_dt));
+				flow_rate.copyTo(flow_vel.flow_rate_uncompensated);
 
-				// flow_compensated_integral
-				flow_compensated_XY_rad.copyTo(flow_vel.flow_compensated_integral);
+				const Vector2f flow_rate_compensated(flow_compensated_XY_rad * (1.f / flow_dt));
+				flow_rate_compensated.copyTo(flow_vel.flow_rate_compensated);
 
 				const Vector3f measured_body_rate(gyro_rate_integral * (1.f / flow_dt));
 
@@ -332,11 +332,6 @@ void VehicleOpticalFlow::Run()
 				flow_vel.gyro_rate[0] = measured_body_rate(0);
 				flow_vel.gyro_rate[1] = measured_body_rate(1);
 				flow_vel.gyro_rate[2] = measured_body_rate(2);
-
-				// gyro_rate_integral
-				flow_vel.gyro_rate_integral[0] = gyro_rate_integral(0);
-				flow_vel.gyro_rate_integral[1] = gyro_rate_integral(1);
-				flow_vel.gyro_rate_integral[2] = gyro_rate_integral(2);
 
 				flow_vel.timestamp = hrt_absolute_time();
 

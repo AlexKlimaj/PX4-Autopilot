@@ -59,7 +59,7 @@ void Ekf::updateOptFlow(estimator_aid_source2d_s &aid_src)
 	// calculate optical LOS rates using optical flow rates that have had the body angular rate contribution removed
 	// correct for gyro bias errors in the data used to do the motion compensation
 	// Note the sign convention used: A positive LOS rate is a RH rotation of the scene about that axis.
-	const Vector2f opt_flow_rate = _flow_compensated_XY_rad / _flow_sample_delayed.dt;
+	const Vector2f opt_flow_rate = _flow_rate_compensated;
 
 	// compute the velocities in body and local frames from corrected optical flow measurement for logging only
 	_flow_vel_body(0) = -opt_flow_rate(1) * range;
@@ -182,8 +182,8 @@ Vector2f Ekf::predictFlowVelBody()
 	const Vector3f pos_offset_body = _params.flow_pos_body - _params.imu_pos_body;
 
 	// calculate the velocity of the sensor relative to the imu in body frame
-	// Note: _flow_sample_delayed.gyro_rate_integral is the negative of the body angular velocity, thus use minus sign
-	const Vector3f vel_rel_imu_body = Vector3f(-(_flow_sample_delayed.gyro_rate_integral / _flow_sample_delayed.dt - _flow_gyro_bias)) % pos_offset_body;
+	// Note: _flow_sample_delayed.gyro_rate is the negative of the body angular velocity, thus use minus sign
+	const Vector3f vel_rel_imu_body = Vector3f(-(_flow_sample_delayed.gyro_rate - _flow_gyro_bias)) % pos_offset_body;
 
 	// calculate the velocity of the sensor in the earth frame
 	const Vector3f vel_rel_earth = _state.vel + _R_to_earth * vel_rel_imu_body;
