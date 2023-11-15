@@ -268,9 +268,9 @@ void SensorSimulator::setSingleReplaySample(const sensor_info &sample)
 		flowSample flow_sample;
 		flow_sample.flow_xy_rad = Vector2f(sample.sensor_data[0],
 						   sample.sensor_data[1]);
-		flow_sample.gyro_xyz = Vector3f(sample.sensor_data[2],
-						sample.sensor_data[3],
-						sample.sensor_data[4]);
+		flow_sample.gyro_rate_integral = Vector3f(sample.sensor_data[2],
+						 sample.sensor_data[3],
+						 sample.sensor_data[4]);
 		flow_sample.quality = sample.sensor_data[5];
 		_flow.setData(flow_sample);
 

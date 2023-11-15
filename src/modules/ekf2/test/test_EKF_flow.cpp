@@ -251,7 +251,7 @@ TEST_F(EkfFlowTest, yawMotionCorrectionWithAutopilotGyroData)
 	setFlowFromHorizontalVelocityAndDistance(flow_sample, simulated_horz_velocity, simulated_distance_to_ground);
 
 	// use autopilot gyro data
-	flow_sample.gyro_xyz.setAll(NAN);
+	flow_sample.gyro_rate_integral.setAll(NAN);
 
 	_sensor_simulator._flow.setData(flow_sample);
 	_sensor_simulator._imu.setGyroData(body_rate);
@@ -289,7 +289,7 @@ TEST_F(EkfFlowTest, yawMotionCorrectionWithFlowGyroData)
 
 	// use flow sensor gyro data
 	// for clarification of the sign, see definition of flowSample
-	flow_sample.gyro_xyz = -body_rate * flow_sample.dt;
+	flow_sample.gyro_rate_integral = -body_rate * flow_sample.dt;
 
 	_sensor_simulator._flow.setData(flow_sample);
 	_sensor_simulator._imu.setGyroData(body_rate);

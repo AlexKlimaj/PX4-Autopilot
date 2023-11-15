@@ -102,9 +102,9 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 
 		const bool is_body_rate_comp_available = calcOptFlowBodyRateComp();
 
-		// don't allow invalid flow gyro_xyz to propagate
-		if (!_flow_sample_delayed.gyro_xyz.isAllFinite()) {
-			_flow_sample_delayed.gyro_xyz.zero();
+		// don't allow invalid flow gyro_rate_integral to propagate
+		if (!_flow_sample_delayed.gyro_rate_integral.isAllFinite()) {
+			_flow_sample_delayed.gyro_rate_integral.zero();
 		}
 
 		if (is_quality_good
@@ -113,7 +113,7 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 		    && is_body_rate_comp_available
 		    && is_delta_time_good) {
 			// compensate for body motion to give a LOS rate
-			_flow_compensated_XY_rad = _flow_sample_delayed.flow_xy_rad - _flow_sample_delayed.gyro_xyz.xy();
+			_flow_compensated_XY_rad = _flow_sample_delayed.flow_xy_rad - _flow_sample_delayed.gyro_rate_integral.xy();
 
 		} else if (!_control_status.flags.in_air && is_tilt_good && _control_status.flags.vehicle_at_rest) {
 
@@ -318,15 +318,15 @@ bool Ekf::calcOptFlowBodyRateComp()
 		const Vector3f reference_body_rate = -_imu_del_ang_of / _delta_time_of; // flow gyro has opposite sign convention
 		_ref_body_rate = reference_body_rate;
 
-		if (!PX4_ISFINITE(_flow_sample_delayed.gyro_xyz(0)) || !PX4_ISFINITE(_flow_sample_delayed.gyro_xyz(1))) {
-			_flow_sample_delayed.gyro_xyz = reference_body_rate * _flow_sample_delayed.dt;
+		if (!PX4_ISFINITE(_flow_sample_delayed.gyro_rate_integral(0)) || !PX4_ISFINITE(_flow_sample_delayed.gyro_rate_integral(1))) {
+			_flow_sample_delayed.gyro_rate_integral = reference_body_rate * _flow_sample_delayed.dt;
 
-		} else if (!PX4_ISFINITE(_flow_sample_delayed.gyro_xyz(2))) {
+		} else if (!PX4_ISFINITE(_flow_sample_delayed.gyro_rate_integral(2))) {
 			// Some flow modules only provide X ind Y angular rates. If this is the case, complete the vector with our own Z gyro
-			_flow_sample_delayed.gyro_xyz(2) = reference_body_rate(2) * _flow_sample_delayed.dt;
+			_flow_sample_delayed.gyro_rate_integral(2) = reference_body_rate(2) * _flow_sample_delayed.dt;
 		}
 
-		const Vector3f measured_body_rate = _flow_sample_delayed.gyro_xyz / _flow_sample_delayed.dt;
+		const Vector3f measured_body_rate = _flow_sample_delayed.gyro_rate_integral / _flow_sample_delayed.dt;
 		_measured_body_rate = measured_body_rate;
 
 		if (fabsf(_delta_time_of - _flow_sample_delayed.dt) < 0.1f) {

@@ -182,8 +182,8 @@ Vector2f Ekf::predictFlowVelBody()
 	const Vector3f pos_offset_body = _params.flow_pos_body - _params.imu_pos_body;
 
 	// calculate the velocity of the sensor relative to the imu in body frame
-	// Note: _flow_sample_delayed.gyro_xyz is the negative of the body angular velocity, thus use minus sign
-	const Vector3f vel_rel_imu_body = Vector3f(-(_flow_sample_delayed.gyro_xyz / _flow_sample_delayed.dt - _flow_gyro_bias)) % pos_offset_body;
+	// Note: _flow_sample_delayed.gyro_rate_integral is the negative of the body angular velocity, thus use minus sign
+	const Vector3f vel_rel_imu_body = Vector3f(-(_flow_sample_delayed.gyro_rate_integral / _flow_sample_delayed.dt - _flow_gyro_bias)) % pos_offset_body;
 
 	// calculate the velocity of the sensor in the earth frame
 	const Vector3f vel_rel_earth = _state.vel + _R_to_earth * vel_rel_imu_body;
