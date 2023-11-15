@@ -137,21 +137,6 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 					      && (_control_status.flags.inertial_dead_reckoning // is doing inertial dead-reckoning so must constrain drift urgently
 						  || isOnlyActiveSourceOfHorizontalAiding(_control_status.flags.opt_flow));
 
-#if defined(CONFIG_EKF2_GNSS)
-		// check if using GPS, but GPS is bad
-		if (_control_status.flags.gps) {
-			if (_control_status.flags.in_air && !is_flow_required) {
-				// Inhibit flow use if motion is un-suitable or we have good quality GPS
-				// Apply hysteresis to prevent rapid mode switching
-				const float gps_err_norm_lim = _control_status.flags.opt_flow ? 0.7f : 1.0f;
-
-				if (_gps_error_norm > gps_err_norm_lim) {
-					is_flow_required = true;
-				}
-			}
-		}
-#endif // CONFIG_EKF2_GNSS
-
 		// inhibit use of optical flow if motion is unsuitable and we are not reliant on it for flight navigation
 		const bool inhibit_flow_use = (!isTerrainEstimateValid() && !is_flow_required)
 					      || !_control_status.flags.tilt_align;
