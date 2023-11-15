@@ -40,29 +40,49 @@
 
 void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 {
+	const bool flow_was_ready = _flow_data_ready;
+
 	if (_flow_buffer) {
 		// We don't fuse flow data immediately because we have to wait for the mid integration point to fall behind the fusion time horizon.
 		// This means we stop looking for new data until the old data has been fused, unless we are not fusing optical flow,
 		// in this case we need to empty the buffer
-		if (!_flow_data_ready || (!_control_status.flags.opt_flow && !_hagl_sensor_status.flags.flow)) {
+		const bool outdated = (_time_delayed_us > (_flow_sample_delayed.time_us + uint32_t(1e6f * _flow_sample_delayed.dt)));
+
+		if (!_flow_data_ready || outdated) {
 			_flow_data_ready = _flow_buffer->pop_first_older_than(imu_delayed.time_us, &_flow_sample_delayed);
+			printf("delayed = %f, flow = %f, dt = %f\n", static_cast<double>(_time_delayed_us)/1e6, static_cast<double>(_flow_sample_delayed.time_us)/1e6, (double)_flow_sample_delayed.dt);
+
+			// Reset the accumulators for each new sample
+			_imu_del_ang_of.zero();
+			_delta_time_of = 0.f;
 		}
 	}
 
 	// Accumulate autopilot gyro data across the same time interval as the flow sensor
 	const Vector3f delta_angle(imu_delayed.delta_ang - (getGyroBias() * imu_delayed.delta_ang_dt));
 
-	if (_delta_time_of < 0.2f) {
+	if (flow_was_ready && _flow_data_ready) {
 		_imu_del_ang_of += delta_angle;
 		_delta_time_of += imu_delayed.delta_ang_dt;
-
-	} else {
-		// reset the accumulators if the time interval is too large
-		_imu_del_ang_of = delta_angle;
-		_delta_time_of = imu_delayed.delta_ang_dt;
 	}
 
+	// Wait until the midpoint of the flow sample has fallen behind the fusion time horizon
+	bool flow_delayed = false;
+
 	if (_flow_data_ready) {
+		flow_delayed = (_time_delayed_us >= (_flow_sample_delayed.time_us + uint32_t(1e6f * _flow_sample_delayed.dt) / 2));
+		// printf("delayed = %f, flow = %f, dt = %f\n", static_cast<double>(_time_delayed_us)/1e6, static_cast<double>(_flow_sample_delayed.time_us)/1e6, (double)_flow_sample_delayed.dt);
+		printf("pass = %s\n", flow_delayed?"y":"n");
+	}
+
+	// New optical flow data is available and is ready to be fused when the midpoint of the sample falls behind the fusion time horizon
+	if (flow_delayed) {
+		if ((_flow_sample_delayed.quality == 0) && (_flow_sample_delayed.dt < FLT_EPSILON)) {
+			// handle special case of SITL and PX4Flow where dt is forced to
+			// zero when the quaity is 0
+			_flow_sample_delayed.dt = 0.02f;
+		}
+
 		const int32_t min_quality = _control_status.flags.in_air
 					    ? _params.flow_qual_min
 					    : _params.flow_qual_min_gnd;
@@ -70,67 +90,27 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 		const bool is_quality_good = (_flow_sample_delayed.quality >= min_quality);
 		const bool is_magnitude_good = !_flow_sample_delayed.flow_xy_rad.longerThan(_flow_sample_delayed.dt * _flow_max_rate);
 		const bool is_tilt_good = (_R_to_earth(2, 2) > _params.range_cos_max_tilt);
-
-		const float delta_time_min = fmaxf(0.7f * _delta_time_of, 0.001f);
-		const float delta_time_max = fminf(1.3f * _delta_time_of, 0.2f);
-		bool is_delta_time_good = _flow_sample_delayed.dt >= delta_time_min && _flow_sample_delayed.dt <= delta_time_max;
-
-		if (!is_delta_time_good && (_flow_sample_delayed.dt > FLT_EPSILON)) {
-
-			if (fabsf(imu_delayed.delta_ang_dt - _flow_sample_delayed.dt) < 0.1f) {
-				// reset accumulators to current IMU
-				_imu_del_ang_of = delta_angle;
-				_delta_time_of = imu_delayed.delta_ang_dt;
-
-				is_delta_time_good = true;
-			}
-
-			if (is_quality_good && !is_delta_time_good) {
-				ECL_DEBUG("Optical flow: bad delta time: OF dt %.6f s (min: %.3f, max: %.3f), IMU dt %.6f s",
-					  (double)_flow_sample_delayed.dt, (double)delta_time_min, (double)delta_time_max,
-					  (double)imu_delayed.delta_ang_dt);
-			}
-		}
-
-		const bool is_body_rate_comp_available = calcOptFlowBodyRateComp();
-
-		// don't allow invalid flow gyro_rate_integral to propagate
-		if (!_flow_sample_delayed.gyro_rate_integral.isAllFinite()) {
-			_flow_sample_delayed.gyro_rate_integral.zero();
-		}
+		const bool is_dt_valid = _flow_sample_delayed.dt > FLT_EPSILON;
 
 		if (is_quality_good
 		    && is_magnitude_good
 		    && is_tilt_good
-		    && is_body_rate_comp_available
-		    && is_delta_time_good) {
+		    && is_dt_valid) {
 			// compensate for body motion to give a LOS rate
+			calcOptFlowBodyRateComp();
 			_flow_compensated_XY_rad = _flow_sample_delayed.flow_xy_rad - _flow_sample_delayed.gyro_rate_integral.xy();
-
-		} else if (!_control_status.flags.in_air && is_tilt_good && _control_status.flags.vehicle_at_rest) {
-
-			if (!is_delta_time_good) {
-				// handle special case of SITL and PX4Flow where dt is forced to
-				// zero when the quaity is 0
-				_flow_sample_delayed.dt = delta_time_min;
-			}
-
-			// when on the ground with poor flow quality,
-			// assume zero ground relative velocity and LOS rate
-			_flow_compensated_XY_rad.setZero();
 
 		} else {
 			// don't use this flow data and wait for the next data to arrive
 			_flow_data_ready = false;
+			flow_delayed = false;
+			printf("dt = %f, q = %d\n", (double)_flow_sample_delayed.dt, _flow_sample_delayed.quality);
 			_flow_compensated_XY_rad.setZero();
 		}
-
-	} else {
-		_flow_compensated_XY_rad.setZero();
 	}
 
-	// New optical flow data is available and is ready to be fused when the midpoint of the sample falls behind the fusion time horizon
-	if (_flow_data_ready) {
+	if (flow_delayed) {
+		updateOptFlow(_aid_src_optical_flow);
 
 		// Check if we are in-air and require optical flow to control position drift
 		bool is_flow_required = _control_status.flags.in_air
@@ -151,9 +131,6 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 			}
 		}
 
-		// Wait until the midpoint of the flow sample has fallen behind the fusion time horizon
-		const bool flow_delayed = (_time_delayed_us > (_flow_sample_delayed.time_us - uint32_t(1e6f * _flow_sample_delayed.dt) / 2));
-
 		// use a relaxed time criteria to enable it to coast through bad range finder data
 		const bool terrain_available = isTerrainEstimateValid() || isRecent(_aid_src_terrain_range_finder.time_last_fuse, (uint64_t)10e6);
 
@@ -167,7 +144,6 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 		   ) {
 			// set the flag and reset the fusion timeout
 			ECL_INFO("starting optical flow fusion");
-			updateOptFlow(_aid_src_optical_flow);
 
 			_innov_check_fail_status.flags.reject_optflow_X = false;
 			_innov_check_fail_status.flags.reject_optflow_Y = false;
@@ -207,7 +183,6 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 			if (flow_delayed) {
 				if (terrain_available) {
 					// Fuse optical flow LOS rate observations into the main filter only if height above ground has been updated recently
-					updateOptFlow(_aid_src_optical_flow);
 					fuseOptFlow();
 					_last_known_pos.xy() = _state.pos.xy();
 
@@ -232,6 +207,7 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 				}
 
 				_flow_data_ready = false;
+				flow_delayed = false;
 			}
 
 			if (!terrain_available || !isRecent(_aid_src_optical_flow.time_last_fuse, (uint64_t)5e6)) {
@@ -255,38 +231,27 @@ void Ekf::stopFlowFusion()
 	}
 }
 
-// calculate optical flow body angular rate compensation
-// returns false if bias corrected body rate data is unavailable
-bool Ekf::calcOptFlowBodyRateComp()
+void Ekf::calcOptFlowBodyRateComp()
 {
-	bool is_body_rate_comp_available = false;
+	_ref_body_rate.zero();
+	_measured_body_rate.zero();
 
 	if ((_delta_time_of > FLT_EPSILON)
 	    && (_flow_sample_delayed.dt > FLT_EPSILON)) {
-		const Vector3f reference_body_rate = -_imu_del_ang_of / _delta_time_of; // flow gyro has opposite sign convention
-		_ref_body_rate = reference_body_rate;
+		_ref_body_rate = -_imu_del_ang_of / _delta_time_of; // flow gyro has opposite sign convention
+		_measured_body_rate = _flow_sample_delayed.gyro_rate_integral / _flow_sample_delayed.dt;
 
-		if (!PX4_ISFINITE(_flow_sample_delayed.gyro_rate_integral(0)) || !PX4_ISFINITE(_flow_sample_delayed.gyro_rate_integral(1))) {
-			_flow_sample_delayed.gyro_rate_integral = reference_body_rate * _flow_sample_delayed.dt;
-
-		} else if (!PX4_ISFINITE(_flow_sample_delayed.gyro_rate_integral(2))) {
-			// Some flow modules only provide X ind Y angular rates. If this is the case, complete the vector with our own Z gyro
-			_flow_sample_delayed.gyro_rate_integral(2) = reference_body_rate(2) * _flow_sample_delayed.dt;
-		}
-
-		const Vector3f measured_body_rate = _flow_sample_delayed.gyro_rate_integral / _flow_sample_delayed.dt;
-		_measured_body_rate = measured_body_rate;
-
-		if (fabsf(_delta_time_of - _flow_sample_delayed.dt) < 0.1f) {
-			// calculate the bias estimate using  a combined LPF and spike filter
-			_flow_gyro_bias = _flow_gyro_bias * 0.99f + matrix::constrain(measured_body_rate - reference_body_rate, -0.1f, 0.1f) * 0.01f;
-		}
-
-		is_body_rate_comp_available = true;
+		// calculate the bias estimate using  a combined LPF and spike filter
+		_flow_gyro_bias = _flow_gyro_bias * 0.99f + matrix::constrain(_measured_body_rate - _ref_body_rate, -0.1f, 0.1f) * 0.01f;
 	}
 
-	// reset the accumulators
-	_imu_del_ang_of.setZero();
-	_delta_time_of = 0.0f;
-	return is_body_rate_comp_available;
+	if (!PX4_ISFINITE(_flow_sample_delayed.gyro_rate_integral(0)) || !PX4_ISFINITE(_flow_sample_delayed.gyro_rate_integral(1))) {
+		_flow_sample_delayed.gyro_rate_integral = _ref_body_rate * _flow_sample_delayed.dt;
+
+	} else if (!PX4_ISFINITE(_flow_sample_delayed.gyro_rate_integral(2))) {
+		// Some flow modules only provide X ind Y angular rates. If this is the case, complete the vector with our own Z gyro
+		_flow_sample_delayed.gyro_rate_integral(2) = _ref_body_rate(2) * _flow_sample_delayed.dt;
+	}
+	_ref_body_rate.print();
+	_measured_body_rate.print();
 }

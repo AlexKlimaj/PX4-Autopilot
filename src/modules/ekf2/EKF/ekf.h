@@ -886,8 +886,7 @@ private:
 	float calcOptFlowMeasVar(const flowSample &flow_sample);
 
 	// calculate optical flow body angular rate compensation
-	// returns false if bias corrected body rate data is unavailable
-	bool calcOptFlowBodyRateComp();
+	void calcOptFlowBodyRateComp();
 
 	// fuse optical flow line of sight rate measurements
 	void updateOptFlow(estimator_aid_source2d_s &aid_src);

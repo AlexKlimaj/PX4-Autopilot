@@ -361,7 +361,8 @@ void EstimatorInterface::setOpticalFlowData(const flowSample &flow)
 
 	const int64_t time_us = flow.time_us
 				- static_cast<int64_t>(_params.flow_delay_ms * 1000)
-				- static_cast<int64_t>(_dt_ekf_avg * 5e5f); // seconds to microseconds divided by 2
+				- static_cast<int64_t>(_dt_ekf_avg * 5e5f) // seconds to microseconds divided by 2
+				- static_cast<int64_t>(flow.dt * 1e6f);    // timestamp must be the leading edge of the integration period
 
 	// limit data rate to prevent data being lost
 	if (time_us >= static_cast<int64_t>(_flow_buffer->get_newest().time_us + _min_obs_interval_us)) {
