@@ -192,43 +192,6 @@ Vector2f Ekf::predictFlowVelBody()
 	return _state.quat_nominal.rotateVectorInverse(vel_rel_earth).xy();
 }
 
-
-// calculate optical flow body angular rate compensation
-// returns false if bias corrected body rate data is unavailable
-bool Ekf::calcOptFlowBodyRateComp()
-{
-	bool is_body_rate_comp_available = false;
-
-	if ((_delta_time_of > FLT_EPSILON)
-	    && (_flow_sample_delayed.dt > FLT_EPSILON)) {
-		const Vector3f reference_body_rate = -_imu_del_ang_of / _delta_time_of; // flow gyro has opposite sign convention
-		_ref_body_rate = reference_body_rate;
-
-		if (!PX4_ISFINITE(_flow_sample_delayed.gyro_xyz(0)) || !PX4_ISFINITE(_flow_sample_delayed.gyro_xyz(1))) {
-			_flow_sample_delayed.gyro_xyz = reference_body_rate * _flow_sample_delayed.dt;
-
-		} else if (!PX4_ISFINITE(_flow_sample_delayed.gyro_xyz(2))) {
-			// Some flow modules only provide X ind Y angular rates. If this is the case, complete the vector with our own Z gyro
-			_flow_sample_delayed.gyro_xyz(2) = reference_body_rate(2) * _flow_sample_delayed.dt;
-		}
-
-		const Vector3f measured_body_rate = _flow_sample_delayed.gyro_xyz / _flow_sample_delayed.dt;
-		_measured_body_rate = measured_body_rate;
-
-		if (fabsf(_delta_time_of - _flow_sample_delayed.dt) < 0.1f) {
-			// calculate the bias estimate using  a combined LPF and spike filter
-			_flow_gyro_bias = _flow_gyro_bias * 0.99f + matrix::constrain(measured_body_rate - reference_body_rate, -0.1f, 0.1f) * 0.01f;
-		}
-
-		is_body_rate_comp_available = true;
-	}
-
-	// reset the accumulators
-	_imu_del_ang_of.setZero();
-	_delta_time_of = 0.0f;
-	return is_body_rate_comp_available;
-}
-
 // calculate the measurement variance for the optical flow sensor (rad/sec)^2
 float Ekf::calcOptFlowMeasVar(const flowSample &flow_sample)
 {
