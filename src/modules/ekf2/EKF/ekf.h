@@ -605,8 +605,6 @@ private:
 	Vector3f _measured_body_rate{};
 
 	float _delta_time_of{0.0f};	///< time in sec that _imu_del_ang_of was accumulated over (sec)
-	uint64_t _time_bad_motion_us{0};	///< last system time that on-ground motion exceeded limits (uSec)
-	uint64_t _time_good_motion_us{0};	///< last system time that on-ground motion was within limits (uSec)
 	Vector2f _flow_compensated_XY_rad{};	///< measured delta angle of the image about the X and Y body axes after removal of body rotation (rad), RH rotation is positive
 
 	bool _flow_data_ready{false};	///< true when the leading edge of the optical flow integration period has fallen behind the fusion time horizon

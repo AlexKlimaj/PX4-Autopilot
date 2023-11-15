@@ -49,14 +49,6 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 		}
 	}
 
-	// Check if on ground motion is un-suitable for use of optical flow
-	if (!_control_status.flags.in_air) {
-		updateOnGroundMotionForOpticalFlowChecks();
-
-	} else {
-		resetOnGroundMotionForOpticalFlowChecks();
-	}
-
 	// Accumulate autopilot gyro data across the same time interval as the flow sensor
 	const Vector3f delta_angle(imu_delayed.delta_ang - (getGyroBias() * imu_delayed.delta_ang_dt));
 
@@ -161,12 +153,7 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 #endif // CONFIG_EKF2_GNSS
 
 		// inhibit use of optical flow if motion is unsuitable and we are not reliant on it for flight navigation
-		const bool preflight_motion_not_ok = !_control_status.flags.in_air
-						     && ((_time_delayed_us > (_time_good_motion_us + (uint64_t)1E5))
-								     || (_time_delayed_us < (_time_bad_motion_us + (uint64_t)5E6)));
-		const bool flight_condition_not_ok = _control_status.flags.in_air && !isTerrainEstimateValid();
-
-		const bool inhibit_flow_use = ((preflight_motion_not_ok || flight_condition_not_ok) && !is_flow_required)
+		const bool inhibit_flow_use = (!isTerrainEstimateValid() && !is_flow_required)
 					      || !_control_status.flags.tilt_align;
 
 		// Handle cases where we are using optical flow but we should not use it anymore
@@ -271,30 +258,6 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 
 		stopFlowFusion();
 	}
-}
-
-void Ekf::updateOnGroundMotionForOpticalFlowChecks()
-{
-	// When on ground check if the vehicle is being shaken or moved in a way that could cause a loss of navigation
-	const float accel_norm = _accel_vec_filt.norm();
-
-	const bool motion_is_excessive = ((accel_norm > (CONSTANTS_ONE_G * 1.5f)) // upper g limit
-					  || (accel_norm < (CONSTANTS_ONE_G * 0.5f)) // lower g limit
-					  || (_ang_rate_magnitude_filt > _flow_max_rate) // angular rate exceeds flow sensor limit
-					  || (_R_to_earth(2, 2) < cosf(math::radians(30.0f)))); // tilted excessively
-
-	if (motion_is_excessive) {
-		_time_bad_motion_us = _time_delayed_us;
-
-	} else {
-		_time_good_motion_us = _time_delayed_us;
-	}
-}
-
-void Ekf::resetOnGroundMotionForOpticalFlowChecks()
-{
-	_time_bad_motion_us = 0;
-	_time_good_motion_us = _time_delayed_us;
 }
 
 void Ekf::stopFlowFusion()
