@@ -71,10 +71,9 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 	}
 
 	if (_flow_data_ready) {
-		int32_t min_quality = _params.flow_qual_min;
-		if (!_control_status.flags.in_air) {
-			min_quality = _params.flow_qual_min_gnd;
-		}
+		const int32_t min_quality = _control_status.flags.in_air
+					    ? _params.flow_qual_min
+					    : _params.flow_qual_min_gnd;
 
 		const bool is_quality_good = (_flow_sample_delayed.quality >= min_quality);
 		const bool is_magnitude_good = !_flow_sample_delayed.flow_xy_rad.longerThan(_flow_sample_delayed.dt * _flow_max_rate);
