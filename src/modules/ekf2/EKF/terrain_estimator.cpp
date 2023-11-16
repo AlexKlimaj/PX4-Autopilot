@@ -440,12 +440,14 @@ void Ekf::controlHaglFakeFusion()
 
 bool Ekf::isTerrainEstimateValid() const
 {
+	bool valid = false;
+
 #if defined(CONFIG_EKF2_RANGE_FINDER)
 
 	// we have been fusing range finder measurements in the last 5 seconds
 	if (isRecent(_aid_src_terrain_range_finder.time_last_fuse, (uint64_t)5e6)) {
 		if (_hagl_sensor_status.flags.range_finder || !_control_status.flags.in_air) {
-			return true;
+			valid = true;
 		}
 	}
 
@@ -456,12 +458,12 @@ bool Ekf::isTerrainEstimateValid() const
 	// we have been fusing optical flow measurements for terrain estimation within the last 5 seconds
 	// this can only be the case if the main filter does not fuse optical flow
 	if (_hagl_sensor_status.flags.flow && isRecent(_aid_src_terrain_optical_flow.time_last_fuse, (uint64_t)5e6)) {
-		return true;
+		valid = true;
 	}
 
 #endif // CONFIG_EKF2_OPTICAL_FLOW
 
-	return false;
+	return valid;
 }
 
 void Ekf::terrainHandleVerticalPositionReset(const float delta_z) {
