@@ -86,7 +86,7 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 							   && (terrain_available || is_flow_required);
 
 		const bool starting_conditions_passing = continuing_conditions_passing
-							 && !isRecent(_aid_src_optical_flow.time_last_fuse, (uint64_t)2e6); // Prevent rapid switching
+							 && isTimedOut(_aid_src_optical_flow.time_last_fuse, (uint64_t)2e6); // Prevent rapid switching
 
 		if (_control_status.flags.opt_flow) {
 			if (continuing_conditions_passing) {
@@ -112,7 +112,7 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 			}
 		}
 
-	} else if (_control_status.flags.opt_flow && !isRecent(_flow_sample_delayed.time_us, (uint64_t)10e6)) {
+	} else if (_control_status.flags.opt_flow && isTimedOut(_flow_sample_delayed.time_us, _params.reset_timeout_max)) {
 		stopFlowFusion();
 	}
 }
