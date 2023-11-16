@@ -51,7 +51,8 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 					    : _params.flow_qual_min_gnd;
 
 		const bool is_quality_good = (_flow_sample_delayed.quality >= min_quality);
-		const bool is_magnitude_good = !_flow_sample_delayed.flow_rate.longerThan(_flow_max_rate);
+		const bool is_magnitude_good = _flow_sample_delayed.flow_rate.isAllFinite()
+					       && !_flow_sample_delayed.flow_rate.longerThan(_flow_max_rate);
 		const bool is_tilt_good = (_R_to_earth(2, 2) > _params.range_cos_max_tilt);
 
 		if (is_quality_good
@@ -73,106 +74,98 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 
 		// Check if we are in-air and require optical flow to control position drift
 		bool is_flow_required = _control_status.flags.in_air
-					      && (_control_status.flags.inertial_dead_reckoning // is doing inertial dead-reckoning so must constrain drift urgently
-						  || isOnlyActiveSourceOfHorizontalAiding(_control_status.flags.opt_flow));
+					&& (_control_status.flags.inertial_dead_reckoning // is doing inertial dead-reckoning so must constrain drift urgently
+					|| isOnlyActiveSourceOfHorizontalAiding(_control_status.flags.opt_flow));
 
-		// inhibit use of optical flow if motion is unsuitable and we are not reliant on it for flight navigation
-		const bool inhibit_flow_use = (!isTerrainEstimateValid() && !is_flow_required)
-					      || !_control_status.flags.tilt_align;
-
-		// Handle cases where we are using optical flow but we should not use it anymore
-		if (_control_status.flags.opt_flow) {
-			if (!(_params.flow_ctrl == 1)
-			    || inhibit_flow_use) {
-
-				stopFlowFusion();
-				return;
-			}
-		}
-
+		// Fuse optical flow LOS rate observations into the main filter only if height above ground has been updated recently
 		// use a relaxed time criteria to enable it to coast through bad range finder data
 		const bool terrain_available = isTerrainEstimateValid() || isRecent(_aid_src_terrain_range_finder.time_last_fuse, (uint64_t)10e6);
 
-		// optical flow fusion mode selection logic
-		if ((_params.flow_ctrl == 1) // optical flow has been selected by the user
-		    && !_control_status.flags.opt_flow // we are not yet using flow data
-		    && !inhibit_flow_use
-		    && !isRecent(_aid_src_optical_flow.time_last_fuse, (uint64_t)2e6)
-		    && terrain_available
-		   ) {
-			// set the flag and reset the fusion timeout
-			ECL_INFO("starting optical flow fusion");
+		const bool continuing_conditions_passing = (_params.flow_ctrl == 1)
+							   && _control_status.flags.tilt_align
+							   && (terrain_available || is_flow_required);
 
-			_innov_check_fail_status.flags.reject_optflow_X = false;
-			_innov_check_fail_status.flags.reject_optflow_Y = false;
-
-			// if we are not using GPS or external vision aiding, then the velocity and position states and covariances need to be set
-			if (!isHorizontalAidingActive()) {
-				ECL_INFO("reset velocity to flow");
-				_information_events.flags.reset_vel_to_flow = true;
-				resetHorizontalVelocityTo(_flow_vel_ne, calcOptFlowMeasVar(_flow_sample_delayed));
-
-				// reset position, estimate is relative to initial position in this mode, so we start with zero error
-				if (!_control_status.flags.in_air) {
-					ECL_INFO("reset position to zero");
-					resetHorizontalPositionTo(Vector2f(0.f, 0.f), 0.f);
-					_last_known_pos.xy() = _state.pos.xy();
-
-				} else {
-					_information_events.flags.reset_pos_to_last_known = true;
-					ECL_INFO("reset position to last known (%.3f, %.3f)", (double)_last_known_pos(0), (double)_last_known_pos(1));
-					resetHorizontalPositionTo(_last_known_pos.xy(), 0.f);
-				}
-
-				_aid_src_optical_flow.test_ratio[0] = 0.f;
-				_aid_src_optical_flow.test_ratio[1] = 0.f;
-				_aid_src_optical_flow.innovation_rejected = false;
-				_aid_src_optical_flow.time_last_fuse = _time_delayed_us;
-
-				_control_status.flags.opt_flow = true;
-				return;
-			}
-
-			// otherwise enable opt_flow and continue to fusion
-			_control_status.flags.opt_flow = true;
-		}
+		const bool starting_conditions_passing = continuing_conditions_passing
+							 && !isRecent(_aid_src_optical_flow.time_last_fuse, (uint64_t)2e6); // Prevent rapid switching
 
 		if (_control_status.flags.opt_flow) {
-			if (terrain_available) {
-				// Fuse optical flow LOS rate observations into the main filter only if height above ground has been updated recently
+			if (continuing_conditions_passing) {
 				fuseOptFlow();
 				_last_known_pos.xy() = _state.pos.xy();
 
 				// handle the case when we have optical flow, are reliant on it, but have not been using it for an extended period
-				if (isTimedOut(_aid_src_optical_flow.time_last_fuse, _params.no_aid_timeout_max)
-				&& !isOtherSourceOfHorizontalAidingThan(_control_status.flags.opt_flow)
-				) {
-					ECL_INFO("reset velocity to flow");
-					_information_events.flags.reset_vel_to_flow = true;
-					resetHorizontalVelocityTo(_flow_vel_ne, calcOptFlowMeasVar(_flow_sample_delayed));
+				if (isTimedOut(_aid_src_optical_flow.time_last_fuse, _params.no_aid_timeout_max)) {
+					if (is_flow_required) {
+						ECL_INFO("reset velocity to flow");
+						_information_events.flags.reset_vel_to_flow = true;
+						resetHorizontalVelocityTo(_flow_vel_ne, calcOptFlowMeasVar(_flow_sample_delayed));
 
-					// reset position, estimate is relative to initial position in this mode, so we start with zero error
-					ECL_INFO("reset position to last known (%.3f, %.3f)", (double)_last_known_pos(0), (double)_last_known_pos(1));
-					_information_events.flags.reset_pos_to_last_known = true;
-					resetHorizontalPositionTo(_last_known_pos.xy(), 0.f);
+						// reset position, estimate is relative to initial position in this mode, so we start with zero error
+						ECL_INFO("reset position to last known (%.3f, %.3f)", (double)_last_known_pos(0), (double)_last_known_pos(1));
+						_information_events.flags.reset_pos_to_last_known = true;
+						resetHorizontalPositionTo(_last_known_pos.xy(), 0.f);
 
-					_aid_src_optical_flow.test_ratio[0] = 0.f;
-					_aid_src_optical_flow.test_ratio[1] = 0.f;
-					_aid_src_optical_flow.innovation_rejected = false;
-					_aid_src_optical_flow.time_last_fuse = _time_delayed_us;
+						_aid_src_optical_flow.test_ratio[0] = 0.f;
+						_aid_src_optical_flow.test_ratio[1] = 0.f;
+						_aid_src_optical_flow.innovation_rejected = false;
+						_aid_src_optical_flow.time_last_fuse = _time_delayed_us;
+
+					} else {
+						stopFlowFusion();
+					}
 				}
+
+			} else {
+				stopFlowFusion();
 			}
 
-			_flow_data_ready = false;
-
-			if (!terrain_available || !isRecent(_aid_src_optical_flow.time_last_fuse, (uint64_t)5e6)) {
-				stopFlowFusion();
+		} else {
+			if (starting_conditions_passing) {
+				startFlowFusion();
 			}
 		}
 
 	} else if (_control_status.flags.opt_flow && !isRecent(_flow_sample_delayed.time_us, (uint64_t)10e6)) {
-
 		stopFlowFusion();
+	}
+}
+
+void Ekf::startFlowFusion()
+{
+	ECL_INFO("starting optical flow fusion");
+
+	if (!_aid_src_optical_flow.innovation_rejected && isHorizontalAidingActive()) {
+		// Consistent with the current velocity state, simply fuse the data without reset
+		fuseOptFlow();
+		_control_status.flags.opt_flow = true;
+
+	} else if (!isHorizontalAidingActive()) {
+		ECL_INFO("reset velocity to flow");
+		_information_events.flags.reset_vel_to_flow = true;
+		resetHorizontalVelocityTo(_flow_vel_ne, calcOptFlowMeasVar(_flow_sample_delayed));
+
+		// reset position, estimate is relative to initial position in this mode, so we start with zero error
+		if (!_control_status.flags.in_air) {
+			ECL_INFO("reset position to zero");
+			resetHorizontalPositionTo(Vector2f(0.f, 0.f), 0.f);
+			_last_known_pos.xy() = _state.pos.xy();
+
+		} else {
+			_information_events.flags.reset_pos_to_last_known = true;
+			ECL_INFO("reset position to last known (%.3f, %.3f)", (double)_last_known_pos(0), (double)_last_known_pos(1));
+			resetHorizontalPositionTo(_last_known_pos.xy(), 0.f);
+		}
+
+		updateOptFlow(_aid_src_optical_flow);
+		_innov_check_fail_status.flags.reject_optflow_X = false;
+		_innov_check_fail_status.flags.reject_optflow_Y = false;
+
+		_aid_src_optical_flow.time_last_fuse = _time_delayed_us;
+		_control_status.flags.opt_flow = true;
+
+	} else {
+		ECL_INFO("optical flow fusion failed to start");
+		_control_status.flags.opt_flow = false;
 	}
 }
 

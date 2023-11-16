@@ -872,6 +872,7 @@ private:
 #if defined(CONFIG_EKF2_OPTICAL_FLOW)
 	// control fusion of optical flow observations
 	void controlOpticalFlowFusion(const imuSample &imu_delayed);
+	void startFlowFusion();
 	void stopFlowFusion();
 
 	void updateOnGroundMotionForOpticalFlowChecks();
