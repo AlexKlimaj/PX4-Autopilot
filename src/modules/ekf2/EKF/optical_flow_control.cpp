@@ -95,14 +95,7 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 				// handle the case when we have optical flow, are reliant on it, but have not been using it for an extended period
 				if (isTimedOut(_aid_src_optical_flow.time_last_fuse, _params.no_aid_timeout_max)) {
 					if (is_flow_required) {
-						ECL_INFO("reset velocity to flow");
-						_information_events.flags.reset_vel_to_flow = true;
-						resetHorizontalVelocityTo(_flow_vel_ne, calcOptFlowMeasVar(_flow_sample_delayed));
-
-						_aid_src_optical_flow.test_ratio[0] = 0.f;
-						_aid_src_optical_flow.test_ratio[1] = 0.f;
-						_aid_src_optical_flow.innovation_rejected = false;
-						_aid_src_optical_flow.time_last_fuse = _time_delayed_us;
+						resetFlowFusion();
 
 					} else {
 						stopFlowFusion();
@@ -134,27 +127,32 @@ void Ekf::startFlowFusion()
 		_control_status.flags.opt_flow = true;
 
 	} else if (!isHorizontalAidingActive()) {
-		ECL_INFO("reset velocity to flow");
-		_information_events.flags.reset_vel_to_flow = true;
-		resetHorizontalVelocityTo(_flow_vel_ne, calcOptFlowMeasVar(_flow_sample_delayed));
-
-		// reset position, estimate is relative to initial position in this mode, so we start with zero error
-		if (!_control_status.flags.in_air) {
-			ECL_INFO("reset position to zero");
-			resetHorizontalPositionTo(Vector2f(0.f, 0.f), 0.f);
-		}
-
-		updateOptFlow(_aid_src_optical_flow);
-		_innov_check_fail_status.flags.reject_optflow_X = false;
-		_innov_check_fail_status.flags.reject_optflow_Y = false;
-
-		_aid_src_optical_flow.time_last_fuse = _time_delayed_us;
+		resetFlowFusion();
 		_control_status.flags.opt_flow = true;
 
 	} else {
 		ECL_INFO("optical flow fusion failed to start");
 		_control_status.flags.opt_flow = false;
 	}
+}
+
+void Ekf::resetFlowFusion()
+{
+	ECL_INFO("reset velocity to flow");
+	_information_events.flags.reset_vel_to_flow = true;
+	resetHorizontalVelocityTo(_flow_vel_ne, calcOptFlowMeasVar(_flow_sample_delayed));
+
+	// reset position, estimate is relative to initial position in this mode, so we start with zero error
+	if (!_control_status.flags.in_air) {
+		ECL_INFO("reset position to zero");
+		resetHorizontalPositionTo(Vector2f(0.f, 0.f), 0.f);
+	}
+
+	updateOptFlow(_aid_src_optical_flow);
+	_innov_check_fail_status.flags.reject_optflow_X = false;
+	_innov_check_fail_status.flags.reject_optflow_Y = false;
+
+	_aid_src_optical_flow.time_last_fuse = _time_delayed_us;
 }
 
 void Ekf::stopFlowFusion()

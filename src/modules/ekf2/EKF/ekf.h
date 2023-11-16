@@ -873,6 +873,7 @@ private:
 	// control fusion of optical flow observations
 	void controlOpticalFlowFusion(const imuSample &imu_delayed);
 	void startFlowFusion();
+	void resetFlowFusion();
 	void stopFlowFusion();
 
 	void updateOnGroundMotionForOpticalFlowChecks();
