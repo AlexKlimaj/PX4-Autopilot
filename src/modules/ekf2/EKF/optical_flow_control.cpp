@@ -91,7 +91,6 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 		if (_control_status.flags.opt_flow) {
 			if (continuing_conditions_passing) {
 				fuseOptFlow();
-				_last_known_pos.xy() = _state.pos.xy();
 
 				// handle the case when we have optical flow, are reliant on it, but have not been using it for an extended period
 				if (isTimedOut(_aid_src_optical_flow.time_last_fuse, _params.no_aid_timeout_max)) {
@@ -99,11 +98,6 @@ void Ekf::controlOpticalFlowFusion(const imuSample &imu_delayed)
 						ECL_INFO("reset velocity to flow");
 						_information_events.flags.reset_vel_to_flow = true;
 						resetHorizontalVelocityTo(_flow_vel_ne, calcOptFlowMeasVar(_flow_sample_delayed));
-
-						// reset position, estimate is relative to initial position in this mode, so we start with zero error
-						ECL_INFO("reset position to last known (%.3f, %.3f)", (double)_last_known_pos(0), (double)_last_known_pos(1));
-						_information_events.flags.reset_pos_to_last_known = true;
-						resetHorizontalPositionTo(_last_known_pos.xy(), 0.f);
 
 						_aid_src_optical_flow.test_ratio[0] = 0.f;
 						_aid_src_optical_flow.test_ratio[1] = 0.f;
@@ -148,12 +142,6 @@ void Ekf::startFlowFusion()
 		if (!_control_status.flags.in_air) {
 			ECL_INFO("reset position to zero");
 			resetHorizontalPositionTo(Vector2f(0.f, 0.f), 0.f);
-			_last_known_pos.xy() = _state.pos.xy();
-
-		} else {
-			_information_events.flags.reset_pos_to_last_known = true;
-			ECL_INFO("reset position to last known (%.3f, %.3f)", (double)_last_known_pos(0), (double)_last_known_pos(1));
-			resetHorizontalPositionTo(_last_known_pos.xy(), 0.f);
 		}
 
 		updateOptFlow(_aid_src_optical_flow);
