@@ -151,6 +151,16 @@ CONFIG:
       buildType: MinSizeRel
       settings:
         CONFIG: ark_fmu-v6x_default
+    ark_teseo-gps_default:
+      short: ark_teseo-gps_default
+      buildType: MinSizeRel
+      settings:
+        CONFIG: ark_teseo-gps_default
+    ark_teseo-gps_canbootloader:
+      short: ark_teseo-gps_canbootloader
+      buildType: MinSizeRel
+      settings:
+        CONFIG: ark_teseo-gps_canbootloader
     atl_mantis-edu_default:
       short: atl_mantis-edu
       buildType: MinSizeRel
