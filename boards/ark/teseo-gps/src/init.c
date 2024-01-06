@@ -94,18 +94,23 @@ __EXPORT void stm32_boardinitialize(void)
 	// Configure SPI all interfaces GPIO & enable power.
 	stm32_spiinitialize();
 
-	// Uncomment these lines to enable passthrough mode
-	// rgb_led(128, 128, 128, 10);
-	// stm32_configgpio(GPIO_USART1_TX_GPIO);
-	// stm32_configgpio(GPIO_USART1_RX_GPIO);
-	// stm32_configgpio(GPIO_USART2_TX_GPIO);
-	// stm32_configgpio(GPIO_USART2_RX_GPIO);
+	// Check if both I2C2 signals are grounded. If so go into gps passthrough mode
+	if (!stm32_gpioread(GPIO_I2C2_SCL_INPUT) && !stm32_gpioread(GPIO_I2C2_SDA_INPUT)) {
+		rgb_led(128, 128, 128, 10);
+		stm32_configgpio(GPIO_USART1_TX_GPIO);
+		stm32_configgpio(GPIO_USART1_RX_GPIO);
+		stm32_configgpio(GPIO_USART2_TX_GPIO);
+		stm32_configgpio(GPIO_USART2_RX_GPIO);
 
-	// while (1) {
-	// 	watchdog_pet();
-	// 	stm32_gpiowrite(GPIO_USART2_TX_GPIO, stm32_gpioread(GPIO_USART1_RX_GPIO));
-	// 	stm32_gpiowrite(GPIO_USART1_TX_GPIO, stm32_gpioread(GPIO_USART2_RX_GPIO));
-	// }
+		while (1) {
+			watchdog_pet();
+			stm32_gpiowrite(GPIO_USART2_TX_GPIO, stm32_gpioread(GPIO_USART1_RX_GPIO));
+			stm32_gpiowrite(GPIO_USART1_TX_GPIO, stm32_gpioread(GPIO_USART2_RX_GPIO));
+		}
+	} else {
+		const uint32_t i2c2_gpio[] = PX4_GPIO_I2C2_INIT_LIST;
+		px4_gpio_init(i2c2_gpio, arraySize(i2c2_gpio));
+	}
 }
 
 /****************************************************************************
