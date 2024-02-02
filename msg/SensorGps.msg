@@ -20,6 +20,8 @@ float32 epv			# GPS vertical position accuracy (metres)
 float32 hdop			# Horizontal dilution of precision
 float32 vdop			# Vertical dilution of precision
 
+float32 ehpe            # Equivalent Horizontal Position Error
+
 int32 noise_per_ms		# GPS noise per millisecond
 uint16 automatic_gain_control   # Automatic gain control monitor
 

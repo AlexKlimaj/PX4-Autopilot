@@ -155,7 +155,7 @@ UavcanGnssBridge::gnss_fix_sub_cb(const uavcan::ReceivedDataStructure<uavcan::eq
 	float vel_cov[9];
 	msg.velocity_covariance.unpackSquareMatrix(vel_cov);
 
-	process_fixx(msg, fix_type, pos_cov, vel_cov, valid_pos_cov, valid_vel_cov, NAN, NAN, NAN, -1, -1, 0, 0);
+	process_fixx(msg, fix_type, pos_cov, vel_cov, valid_pos_cov, valid_vel_cov, NAN, NAN, NAN, -1, -1, 0, 0, 0);
 }
 
 void
@@ -325,8 +325,16 @@ UavcanGnssBridge::gnss_fix2_sub_cb(const uavcan::ReceivedDataStructure<uavcan::e
 		spoofing_state = msg.ecef_position_velocity[0].position_xyz_mm[2] & 0xFF;
 	}
 
+	// Jake: continuing with the hack of using the ECEFPositionVelocity structure in Fix2
+	// int36[3] position_xyz_mm           	# XYZ-axis coordinates in mm
+	// EHPE : dd.d in m 					# Equivalent Horizontal Position Error
+
+	// Multiply by 100?
+
+	float ehpe = ((float)msg.ecef_position_velocity[0].position_xyz_mm[0]) / 100.0f;
+
 	process_fixx(msg, fix_type, pos_cov, vel_cov, valid_covariances, valid_covariances, heading, heading_offset,
-		     heading_accuracy, noise_per_ms, jamming_indicator, jamming_state, spoofing_state);
+		     heading_accuracy, noise_per_ms, jamming_indicator, jamming_state, spoofing_state, ehpe);
 }
 
 template <typename FixType>
@@ -337,7 +345,7 @@ void UavcanGnssBridge::process_fixx(const uavcan::ReceivedDataStructure<FixType>
 				    const float heading, const float heading_offset,
 				    const float heading_accuracy, const int32_t noise_per_ms,
 				    const int32_t jamming_indicator, const uint8_t jamming_state,
-				    const uint8_t spoofing_state)
+				    const uint8_t spoofing_state, const float ehpe)
 {
 	sensor_gps_s report{};
 	report.device_id = get_device_id();
@@ -369,6 +377,8 @@ void UavcanGnssBridge::process_fixx(const uavcan::ReceivedDataStructure<FixType>
 		report.eph = -1.0F;
 		report.epv = -1.0F;
 	}
+
+	report.ehpe = ehpe;
 
 	if (valid_vel_cov) {
 		report.s_variance_m_s = math::max(vel_cov[0], vel_cov[4], vel_cov[8]);

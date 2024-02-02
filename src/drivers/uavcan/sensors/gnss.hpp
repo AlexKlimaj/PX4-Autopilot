@@ -91,7 +91,7 @@ private:
 			  const float heading, const float heading_offset,
 			  const float heading_accuracy, const int32_t noise_per_ms,
 			  const int32_t jamming_indicator, const uint8_t jamming_state,
-			  const uint8_t spoofing_state);
+			  const uint8_t spoofing_state, const float ehpe);
 
 	void handleInjectDataTopic();
 	bool PublishRTCMStream(const uint8_t *data, size_t data_len);

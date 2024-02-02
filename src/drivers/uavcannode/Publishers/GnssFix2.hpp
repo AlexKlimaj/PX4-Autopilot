@@ -126,6 +126,8 @@ public:
 			ecefpositionvelocity.velocity_xyz[0] = NAN;
 			ecefpositionvelocity.velocity_xyz[1] = NAN;
 			ecefpositionvelocity.velocity_xyz[2] = NAN;
+			// Jake: continuing with the hack
+			ecefpositionvelocity.position_xyz_mm[0] = (int32_t)(gps.ehpe * 100.0f);
 
 			// Use ecef_position_velocity for now... There are no fields for these
 			ecefpositionvelocity.position_xyz_mm[0] = gps.noise_per_ms;
