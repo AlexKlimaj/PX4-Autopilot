@@ -291,7 +291,7 @@ UavcanGnssBridge::gnss_fix2_sub_cb(const uavcan::ReceivedDataStructure<uavcan::e
 	default: {
 			// Either empty or invalid sized, interpret as zero matrix
 			valid_covariances = false;
-			break;	// Nothing to do
+			break;  // Nothing to do
 		}
 	}
 
@@ -326,26 +326,23 @@ UavcanGnssBridge::gnss_fix2_sub_cb(const uavcan::ReceivedDataStructure<uavcan::e
 	}
 
 	// Jake: continuing with the hack of using the ECEFPositionVelocity structure in Fix2
-	// int36[3] position_xyz_mm           	# XYZ-axis coordinates in mm
-	// EHPE : dd.d in m 					# Equivalent Horizontal Position Error
-
-	// Multiply by 100?
-
+	// int36[3] position_xyz_mm             # XYZ-axis coordinates in mm
+	// EHPE : dd.d in m                     # Equivalent Horizontal Position Error
 	float ehpe = ((float)msg.ecef_position_velocity[0].position_xyz_mm[0]) / 100.0f;
 
 	process_fixx(msg, fix_type, pos_cov, vel_cov, valid_covariances, valid_covariances, heading, heading_offset,
-		     heading_accuracy, noise_per_ms, jamming_indicator, jamming_state, spoofing_state, ehpe);
+			 heading_accuracy, noise_per_ms, jamming_indicator, jamming_state, spoofing_state, ehpe);
 }
 
 template <typename FixType>
 void UavcanGnssBridge::process_fixx(const uavcan::ReceivedDataStructure<FixType> &msg,
-				    uint8_t fix_type,
-				    const float (&pos_cov)[9], const float (&vel_cov)[9],
-				    const bool valid_pos_cov, const bool valid_vel_cov,
-				    const float heading, const float heading_offset,
-				    const float heading_accuracy, const int32_t noise_per_ms,
-				    const int32_t jamming_indicator, const uint8_t jamming_state,
-				    const uint8_t spoofing_state, const float ehpe)
+					uint8_t fix_type,
+					const float (&pos_cov)[9], const float (&vel_cov)[9],
+					const bool valid_pos_cov, const bool valid_vel_cov,
+					const float heading, const float heading_offset,
+					const float heading_accuracy, const int32_t noise_per_ms,
+					const int32_t jamming_indicator, const uint8_t jamming_state,
+					const uint8_t spoofing_state, const float ehpe)
 {
 	sensor_gps_s report{};
 	report.device_id = get_device_id();
@@ -353,7 +350,7 @@ void UavcanGnssBridge::process_fixx(const uavcan::ReceivedDataStructure<FixType>
 	/*
 	 * FIXME HACK
 	 * There used to be the following line of code:
-	 * 	report.timestamp_position = msg.getMonotonicTimestamp().toUSec();
+	 *  report.timestamp_position = msg.getMonotonicTimestamp().toUSec();
 	 * It stopped working when the time sync feature has been introduced, because it caused libuavcan
 	 * to use an independent time source (based on hardware TIM5) instead of HRT.
 	 * The proper solution is to be developed.
@@ -399,7 +396,7 @@ void UavcanGnssBridge::process_fixx(const uavcan::ReceivedDataStructure<FixType>
 		float vel_e_sq = vel_e * vel_e;
 		report.c_variance_rad =
 			(vel_e_sq * vel_cov[0] +
-			 -2 * vel_n * vel_e * vel_cov[1] +	// Covariance matrix is symmetric
+			 -2 * vel_n * vel_e * vel_cov[1] +  // Covariance matrix is symmetric
 			 vel_n_sq * vel_cov[4]) / ((vel_n_sq + vel_e_sq) * (vel_n_sq + vel_e_sq));
 
 	} else {
@@ -413,8 +410,8 @@ void UavcanGnssBridge::process_fixx(const uavcan::ReceivedDataStructure<FixType>
 	report.vel_e_m_s = msg.ned_velocity[1];
 	report.vel_d_m_s = msg.ned_velocity[2];
 	report.vel_m_s = sqrtf(report.vel_n_m_s * report.vel_n_m_s +
-			       report.vel_e_m_s * report.vel_e_m_s +
-			       report.vel_d_m_s * report.vel_d_m_s);
+				   report.vel_e_m_s * report.vel_e_m_s +
+				   report.vel_d_m_s * report.vel_d_m_s);
 	report.cog_rad = atan2f(report.vel_e_m_s, report.vel_n_m_s);
 	report.vel_ned_valid = true;
 
