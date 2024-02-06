@@ -1,0 +1,5 @@
+menuconfig DRIVERS_TESEO_GPS
+	bool "teseo_gps"
+	default n
+	---help---
+		Enable support for teseo GPS

@@ -1,0 +1,525 @@
+/****************************************************************************
+ *
+ *   Copyright (c) 2024 PX4 Development Team. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name PX4 nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
+
+#include <nuttx/clock.h>
+#include <nuttx/arch.h>
+
+#include "teseo_gps.h"
+
+using namespace time_literals;
+
+#define TIMEOUT_1HZ		1300	//!< Timeout time in mS, 1000 mS (1Hz) + 300 mS delta for error
+#define TIMEOUT_5HZ		500		//!< Timeout time in mS,  200 mS (5Hz) + 300 mS delta for error
+#define RATE_MEASUREMENT_PERIOD 5_s
+
+
+static constexpr int TASK_STACK_SIZE = PX4_STACK_ADJUSTED(2040);
+
+px4::atomic_bool TeseoGPS::_is_gps_main_advertised{false};
+px4::atomic<TeseoGPS*> TeseoGPS::_secondary_instance{nullptr};
+
+TeseoGPS::TeseoGPS(const char *path, Instance instance, unsigned baudrate) :
+	Device(MODULE_NAME),
+	_baudrate(baudrate),
+	_instance(instance)
+{
+	/* store port name */
+	strncpy(_port, path, sizeof(_port) - 1);
+	/* enforce null termination */
+	_port[sizeof(_port) - 1] = '\0';
+
+	_report_gps_pos.heading = NAN;
+	_report_gps_pos.heading_offset = NAN;
+
+	set_device_bus_type(device::Device::DeviceBusType::DeviceBusType_SERIAL);
+
+	char c = _port[strlen(_port) - 1]; // last digit of path (eg /dev/ttyS2)
+	set_device_bus(c - 48); // sub 48 to convert char to integer
+}
+
+TeseoGPS::~TeseoGPS()
+{
+	TeseoGPS* secondary_instance = _secondary_instance.load();
+
+	if (_instance == Instance::Main && secondary_instance) {
+		secondary_instance->request_stop();
+
+		// wait for it to exit
+		unsigned int i = 0;
+
+		do {
+			px4_usleep(20000); // 20 ms
+			++i;
+		} while (_secondary_instance.load() && i < 100);
+	}
+}
+
+int TeseoGPS::read_serial_port(uint8_t* buf, size_t size, int timeout)
+{
+	const int max_timeout = 50;
+
+	pollfd fds[1];
+	fds[0].fd = _serial_fd;
+	fds[0].events = POLLIN;
+
+	// https://man7.org/linux/man-pages/man2/poll.2.html
+	int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), math::min(max_timeout, timeout));
+
+	if (ret <= 0) {
+		// Timed out or error
+		return ret;
+	}
+
+	// Check that there is data to read
+	if (!(fds[0].revents & POLLIN)) {
+		return -1;
+	}
+
+	/*
+	 * We are here because poll says there is some data, so this
+	 * won't block even on a blocking device. But don't read immediately
+	 * by 1-2 bytes, wait for some more data to save expensive read() calls.
+	 * If we have all requested data available, read it without waiting.
+	 * If more bytes are available, we'll go back to poll() again.
+	 */
+	const unsigned character_count = 32; // minimum bytes that we want to read
+	unsigned baudrate = _baudrate == 0 ? 115200 : _baudrate;
+	const unsigned sleeptime = character_count * 1000000 / (baudrate / 10);
+
+	int err = 0;
+	int bytes_available = 0;
+	err = ::ioctl(_serial_fd, FIONREAD, (unsigned long)&bytes_available);
+
+	if (err != 0 || bytes_available < (int)character_count) {
+		px4_usleep(sleeptime);
+	}
+
+	ret = ::read(_serial_fd, buf, size);
+
+	// Return bytes read
+	return ret;
+}
+
+void
+TeseoGPS::run()
+{
+	while (!should_exit()) {
+
+		_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
+
+		if (_serial_fd < 0) {
+			PX4_ERR("failed to open %s err: %d", _port, errno);
+			px4_sleep(1);
+			continue;
+		}
+	}
+
+	if (should_exit()) {
+		return;
+	}
+
+	// Port is available now
+
+	set_device_type(DRV_GPS_DEVTYPE_NMEA);
+
+	// TODO: configure() : send commands to configure the modules (constellations, rate, filter, etc)
+
+
+	// -------------------------------- //
+	// ----- Main read/parse loop ----- //
+	// -------------------------------- //
+
+	uint8_t rxbuf[1024] {};
+
+	int timeout_ms = 100;
+
+	while (!should_exit()) {
+
+		int bytes_read = read_serial_port(rxbuf, sizeof(rxbuf), timeout_ms);
+
+		int parsed_count = _parser.parse(rxbuf, bytes_read);
+
+		// TODO: get pos/vel update info from the parser
+
+		// TODO: get gps_report from the parser
+
+		(void)parsed_count;
+
+	}
+}
+
+int TeseoGPS::setBaudrate(unsigned baud)
+{
+	int speed;
+
+	switch (baud) {
+	case 9600:   speed = B9600;   break;
+
+	case 19200:  speed = B19200;  break;
+
+	case 38400:  speed = B38400;  break;
+
+	case 57600:  speed = B57600;  break;
+
+	case 115200: speed = B115200; break;
+
+	case 230400: speed = B230400; break;
+
+	case 460800: speed = B460800; break;
+
+	case 921600: speed = B921600; break;
+
+	default:
+		PX4_ERR("ERR: unknown baudrate: %d", baud);
+		return -EINVAL;
+	}
+
+	struct termios uart_config;
+
+	int termios_state;
+
+	/* fill the struct for the new configuration */
+	tcgetattr(_serial_fd, &uart_config);
+
+	/* properly configure the terminal (see also https://en.wikibooks.org/wiki/Serial_Programming/termios ) */
+
+	//
+	// Input flags - Turn off input processing
+	//
+	// convert break to null byte, no CR to NL translation,
+	// no NL to CR translation, don't mark parity errors or breaks
+	// no input parity check, don't strip high bit off,
+	// no XON/XOFF software flow control
+	//
+	uart_config.c_iflag &= ~(IGNBRK | BRKINT | ICRNL |
+				 INLCR | PARMRK | INPCK | ISTRIP | IXON);
+	//
+	// Output flags - Turn off output processing
+	//
+	// no CR to NL translation, no NL to CR-NL translation,
+	// no NL to CR translation, no column 0 CR suppression,
+	// no Ctrl-D suppression, no fill characters, no case mapping,
+	// no local output processing
+	//
+	// config.c_oflag &= ~(OCRNL | ONLCR | ONLRET |
+	//                     ONOCR | ONOEOT| OFILL | OLCUC | OPOST);
+	uart_config.c_oflag = 0;
+
+	//
+	// No line processing
+	//
+	// echo off, echo newline off, canonical mode off,
+	// extended input processing off, signal chars off
+	//
+	uart_config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+
+	/* no parity, one stop bit, disable flow control */
+	uart_config.c_cflag &= ~(CSTOPB | PARENB | CRTSCTS);
+
+	/* set baud rate */
+	if ((termios_state = cfsetispeed(&uart_config, speed)) < 0) {
+		PX4_ERR("ERR: %d (cfsetispeed)", termios_state);
+		return -1;
+	}
+
+	if ((termios_state = cfsetospeed(&uart_config, speed)) < 0) {
+		PX4_ERR("ERR: %d (cfsetospeed)", termios_state);
+		return -1;
+	}
+
+	if ((termios_state = tcsetattr(_serial_fd, TCSANOW, &uart_config)) < 0) {
+		PX4_ERR("ERR: %d (tcsetattr)", termios_state);
+		return -1;
+	}
+
+	return 0;
+}
+
+
+int TeseoGPS::print_status()
+{
+	switch (_instance) {
+	case Instance::Main:
+		PX4_INFO("Main GPS");
+		break;
+
+	case Instance::Secondary:
+		PX4_INFO("");
+		PX4_INFO("Secondary GPS");
+		break;
+
+	default:
+		break;
+	}
+
+	PX4_INFO("protocol: NMEA");
+
+	PX4_INFO("status: %s, port: %s, baudrate: %d", _healthy ? "OK" : "NOT OK", _port, _baudrate);
+	PX4_INFO("rate reading: \t\t%6i B/s", _rate_reading);
+
+	print_message(ORB_ID(sensor_gps), _report_gps_pos);
+
+	if (_instance == Instance::Main && _secondary_instance.load()) {
+		TeseoGPS* secondary_instance = _secondary_instance.load();
+		secondary_instance->print_status();
+	}
+
+	return 0;
+}
+
+void TeseoGPS::publish()
+{
+	if (_instance == Instance::Main || _is_gps_main_advertised.load()) {
+		_report_gps_pos.device_id = get_device_id();
+
+		_report_gps_pos_pub.publish(_report_gps_pos);
+		// Heading/yaw data can be updated at a lower rate than the other navigation data.
+		// The uORB message definition requires this data to be set to a NAN if no new valid data is available.
+		_report_gps_pos.heading = NAN;
+		_is_gps_main_advertised.store(true);
+
+		if (_report_gps_pos.spoofing_state != _spoofing_state) {
+
+			if (_report_gps_pos.spoofing_state > sensor_gps_s::SPOOFING_STATE_NONE) {
+				PX4_WARN("GPS spoofing detected! (state: %d)", _report_gps_pos.spoofing_state);
+			}
+
+			_spoofing_state = _report_gps_pos.spoofing_state;
+		}
+
+		if (_report_gps_pos.jamming_state != _jamming_state) {
+
+			if (_report_gps_pos.jamming_state > sensor_gps_s::JAMMING_STATE_WARNING) {
+				PX4_WARN("GPS jamming detected! (state: %d) (indicator: %d)", _report_gps_pos.jamming_state,
+					 (uint8_t)_report_gps_pos.jamming_indicator);
+			}
+
+			_jamming_state = _report_gps_pos.jamming_state;
+		}
+	}
+}
+
+void TeseoGPS::publishRelativePosition(sensor_gnss_relative_s &gnss_relative)
+{
+	gnss_relative.device_id = get_device_id();
+	gnss_relative.timestamp = hrt_absolute_time();
+	_sensor_gnss_relative_pub.publish(gnss_relative);
+}
+
+int TeseoGPS::custom_command(int argc, char *argv[])
+{
+	if (!is_running()) {
+		PX4_INFO("not running");
+		return PX4_ERROR;
+	}
+
+	// TeseoGPS* _instance = get_instance();
+
+	// TODO:
+
+	return -1;
+}
+
+int TeseoGPS::print_usage(const char *reason)
+{
+	if (reason) {
+		PX4_WARN("%s\n", reason);
+	}
+
+	PRINT_MODULE_DESCRIPTION(
+		R"DESCR_STR(
+### Description
+Teseo GPS driver module that handles the NMEA communication with the device and publishes the position via uORB.
+
+The module supports a secondary GPS device, specified via `-e` parameter. The position will be published
+on the second uORB topic instance, but it's currently not used by the rest of the system (however the
+data will be logged, so that it can be used for comparisons).
+
+### Implementation
+There is a thread for each device polling for data..
+
+### Examples
+
+Starting 2 GPS devices (the main GPS on /dev/ttyS3 and the secondary on /dev/ttyS4):
+$ gps start -d /dev/ttyS3 -e /dev/ttyS4
+
+Initiate warm restart of GPS device
+$ gps reset warm
+)DESCR_STR");
+
+	PRINT_MODULE_USAGE_NAME("teseo_gps", "driver");
+	PRINT_MODULE_USAGE_COMMAND("start");
+	PRINT_MODULE_USAGE_PARAM_STRING('d', "/dev/ttyS3", "<file:dev>", "GPS device", true);
+	PRINT_MODULE_USAGE_PARAM_INT('b', 0, 0, 3000000, "Baudrate (can also be p:<param_name>)", true);
+	PRINT_MODULE_USAGE_PARAM_STRING('e', nullptr, "<file:dev>", "Optional secondary GPS device", true);
+	PRINT_MODULE_USAGE_PARAM_INT('g', 0, 0, 3000000, "Baudrate (secondary GPS, can also be p:<param_name>)", true);
+
+	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
+	PRINT_MODULE_USAGE_COMMAND_DESCR("reset", "Reset GPS device");
+	PRINT_MODULE_USAGE_ARG("cold|warm|hot", "Specify reset type", false);
+
+	return 0;
+}
+
+int TeseoGPS::task_spawn(int argc, char *argv[])
+{
+	return task_spawn(argc, argv, Instance::Main);
+}
+
+int TeseoGPS::task_spawn(int argc, char *argv[], Instance instance)
+{
+	px4_main_t entry_point;
+	if (instance == Instance::Main) {
+		entry_point = (px4_main_t)&run_trampoline;
+	} else {
+		entry_point = (px4_main_t)&run_trampoline_secondary;
+	}
+
+	int task_id = px4_task_spawn_cmd("gps", SCHED_DEFAULT,
+				   SCHED_PRIORITY_SLOW_DRIVER, TASK_STACK_SIZE,
+				   entry_point, (char *const *)argv);
+
+	if (task_id < 0) {
+		task_id = -1;
+		return -errno;
+	}
+
+	if (instance == Instance::Main) {
+		_task_id = task_id;
+	}
+
+	return 0;
+}
+
+int TeseoGPS::run_trampoline_secondary(int argc, char *argv[])
+{
+	// the task name is the first argument
+	argc -= 1;
+	argv += 1;
+
+	TeseoGPS* gps = instantiate(argc, argv, Instance::Secondary);
+
+	if (gps) {
+		_secondary_instance.store(gps);
+		gps->run();
+		_secondary_instance.store(nullptr);
+		delete gps;
+	}
+	return 0;
+}
+
+TeseoGPS* TeseoGPS::instantiate(int argc, char *argv[])
+{
+	return instantiate(argc, argv, Instance::Main);
+}
+
+TeseoGPS* TeseoGPS::instantiate(int argc, char *argv[], Instance instance)
+{
+	const char *device_name = nullptr;
+	const char *device_name_secondary = nullptr;
+	int baudrate_main = 0;
+	int baudrate_secondary = 0;
+
+	int myoptind = 1;
+	int ch;
+	const char *myoptarg = nullptr;
+
+	while ((ch = px4_getopt(argc, argv, "b:g:d:e:", &myoptind, &myoptarg)) != EOF) {
+		switch (ch) {
+		case 'b':
+			if (px4_get_parameter_value(myoptarg, baudrate_main) != 0) {
+				PX4_ERR("baudrate parsing failed");
+				return nullptr;
+			}
+			break;
+		case 'g':
+			if (px4_get_parameter_value(myoptarg, baudrate_secondary) != 0) {
+				PX4_ERR("baudrate parsing failed");
+				return nullptr;
+			}
+			break;
+
+		case 'd':
+			device_name = myoptarg;
+			break;
+
+		case 'e':
+			device_name_secondary = myoptarg;
+			break;
+
+		default:
+			PX4_WARN("unrecognized option: %c", ch);
+			return nullptr;
+		}
+	}
+
+	TeseoGPS* gps = nullptr;
+	if (instance == Instance::Main) {
+		if (device_name && (::access(device_name, R_OK|W_OK) == 0)) {
+			gps = new TeseoGPS(device_name, instance, baudrate_main);
+
+		} else {
+			PX4_ERR("invalid device (-d) %s", device_name ? device_name  : "");
+		}
+
+		if (gps && device_name_secondary) {
+			task_spawn(argc, argv, Instance::Secondary);
+			// wait until running
+			int i = 0;
+
+			do {
+				/* wait up to 1s */
+				px4_usleep(2500);
+
+			} while (!_secondary_instance.load() && ++i < 400);
+
+			if (i == 400) {
+				PX4_ERR("Timed out while waiting for thread to start");
+			}
+		}
+	} else { // secondary instance
+		if (device_name_secondary && (access(device_name_secondary, R_OK|W_OK) == 0)) {
+			gps = new TeseoGPS(device_name_secondary, instance, baudrate_secondary);
+
+		} else {
+			PX4_ERR("invalid secondary device (-g) %s", device_name_secondary ? device_name_secondary : "");
+		}
+	}
+
+	return gps;
+}
+
+extern "C" __EXPORT int teseo_gps_main(int argc, char *argv[])
+{
+	return TeseoGPS::main(argc, argv);
+}
