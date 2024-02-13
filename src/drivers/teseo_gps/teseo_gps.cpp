@@ -53,13 +53,13 @@ TeseoGPS::TeseoGPS(const char *path, Instance instance, unsigned baudrate) :
 	_baudrate(baudrate),
 	_instance(instance)
 {
-	/* store port name */
+	// store port name
 	strncpy(_port, path, sizeof(_port) - 1);
-	/* enforce null termination */
+	// enforce null termination
 	_port[sizeof(_port) - 1] = '\0';
 
-	_report_gps_pos.heading = NAN;
-	_report_gps_pos.heading_offset = NAN;
+	_gps_report.heading = NAN;
+	_gps_report.heading_offset = NAN;
 
 	set_device_bus_type(device::Device::DeviceBusType::DeviceBusType_SERIAL);
 
@@ -82,6 +82,111 @@ TeseoGPS::~TeseoGPS()
 			++i;
 		} while (_secondary_instance.load() && i < 100);
 	}
+}
+
+
+void TeseoGPS::update_gps_report()
+{
+	RMC_Data* rmc = _parser.RMC();
+	GGA_Data* gga = _parser.GGA();
+	// VTG_Data* vtg = _parser.VTG();
+	GST_Data* gst = _parser.GST();
+	GSA_Data* gsa = _parser.GSA();
+
+	// TODO: do we want to use this?
+	// (void)vtg;
+
+	double lat = gga->lat;
+	double lon = gga->lon;
+
+    ///// GGA
+    if (gga->ns == 'S') {
+        lat = -lat;
+    }
+
+    if (gga->ew == 'W') {
+        lon = -lon;
+    }
+
+    // Convert to PX4 definitions
+    switch (gga->fix_quality) {
+    case 1:
+        // 3D fix
+        _gps_report.fix_type = 3;
+        break;
+
+    case 2:
+        // Differential
+        _gps_report.fix_type = 4;
+        break;
+
+    case 6:
+        // Dead reckoning we'll call 2D fix
+        _gps_report.fix_type = 2;
+        break;
+    }
+
+    _gps_report.longitude_deg = int(lon * 0.01) + (lon * 0.01 - int(lon * 0.01)) * 100.0 / 60.0;
+    _gps_report.latitude_deg = int(lat * 0.01) + (lat * 0.01 - int(lat * 0.01)) * 100.0 / 60.0;
+    _gps_report.hdop = gga->hdop;
+    _gps_report.altitude_msl_m = (double)gga->alt;
+    _gps_report.altitude_ellipsoid_m = (double)(gga->alt + gga->geo_sep);
+
+    // Only report sats if there's a fix
+    if (_gps_report.fix_type > 1) {
+        _gps_report.satellites_used = gga->sats;
+
+    } else {
+        _gps_report.satellites_used = 0;
+    }
+
+    ///// GST
+    _gps_report.eph = sqrtf(gst->lat_err * gst->lat_err + gst->lon_err * gst->lon_err);
+    _gps_report.epv = gst->alt_err;
+    _gps_report.ehpe = gst->ehpe;
+
+    ///// GSA
+    _gps_report.hdop = gsa->hdop;
+    _gps_report.vdop = gsa->vdop;
+
+    ///// RMC
+    float velocity_ms = rmc->speed / 1.9438445f; // knots to m/s
+    float track_rad = rmc->track_good * M_PI_F / 180.0f; // rad in range [0, 2pi]
+
+    _gps_report.vel_m_s = velocity_ms;
+    _gps_report.vel_n_m_s = velocity_ms * cosf(track_rad);
+    _gps_report.vel_e_m_s = velocity_ms * sinf(track_rad);
+    _gps_report.cog_rad = track_rad;
+
+    _gps_report.vel_ned_valid = rmc->mode != 'N';
+
+    // If RMC says No Fix
+    if (rmc->status == 'V') {
+        _gps_report.fix_type = 0;
+    }
+
+    // Calculate UTC time since epoch
+    double utc_time = rmc->timestamp;
+    int utc_hour = static_cast<int>(utc_time / 10000);
+    int utc_minute = static_cast<int>((utc_time - utc_hour * 10000) / 100);
+    double utc_sec = static_cast<double>(utc_time - utc_hour * 10000 - utc_minute * 100);
+    int nmea_day = static_cast<int>(rmc->date / 10000);
+    int nmea_mth = static_cast<int>((rmc->date - nmea_day * 10000) / 100);
+    int nmea_year = static_cast<int>(rmc->date - nmea_day * 10000 - nmea_mth * 100);
+    // convert to unix timestamp
+    struct tm timeinfo = {};
+    timeinfo.tm_year = nmea_year + 100;
+    timeinfo.tm_mon = nmea_mth - 1;
+    timeinfo.tm_mday = nmea_day;
+    timeinfo.tm_hour = utc_hour;
+    timeinfo.tm_min = utc_minute;
+    timeinfo.tm_sec = int(utc_sec);
+    timeinfo.tm_isdst = 0;
+
+    time_t epoch = mktime(&timeinfo);
+    uint64_t usecs = static_cast<uint64_t>((utc_sec - static_cast<uint64_t>(utc_sec)) * 1000000);
+    _gps_report.time_utc_usec = static_cast<uint64_t>(epoch) * 1000000ULL;
+    _gps_report.time_utc_usec += usecs;
 }
 
 int TeseoGPS::read_serial_port(uint8_t* buf, size_t size, int timeout)
@@ -148,8 +253,6 @@ TeseoGPS::run()
 		return;
 	}
 
-	// Port is available now
-
 	set_device_type(DRV_GPS_DEVTYPE_NMEA);
 
 	// TODO: configure() : send commands to configure the modules (constellations, rate, filter, etc)
@@ -167,14 +270,20 @@ TeseoGPS::run()
 
 		int bytes_read = read_serial_port(rxbuf, sizeof(rxbuf), timeout_ms);
 
-		int parsed_count = _parser.parse(rxbuf, bytes_read);
+		if (bytes_read > 0) {
+			int parsed_count = _parser.parse(rxbuf, bytes_read);
 
-		// TODO: get pos/vel update info from the parser
+			if (parsed_count > 0) {
+				// update gps_report
+				update_gps_report();
+			}
 
-		// TODO: get gps_report from the parser
+			// TODO: get pos/vel update info from the parser
 
-		(void)parsed_count;
+			// TODO: get gps_report from the parser
 
+			(void)parsed_count;
+		}
 	}
 }
 
@@ -287,7 +396,7 @@ int TeseoGPS::print_status()
 	PX4_INFO("status: %s, port: %s, baudrate: %d", _healthy ? "OK" : "NOT OK", _port, _baudrate);
 	PX4_INFO("rate reading: \t\t%6i B/s", _rate_reading);
 
-	print_message(ORB_ID(sensor_gps), _report_gps_pos);
+	print_message(ORB_ID(sensor_gps), _gps_report);
 
 	if (_instance == Instance::Main && _secondary_instance.load()) {
 		TeseoGPS* secondary_instance = _secondary_instance.load();
@@ -300,31 +409,31 @@ int TeseoGPS::print_status()
 void TeseoGPS::publish()
 {
 	if (_instance == Instance::Main || _is_gps_main_advertised.load()) {
-		_report_gps_pos.device_id = get_device_id();
+		_gps_report.device_id = get_device_id();
 
-		_report_gps_pos_pub.publish(_report_gps_pos);
+		_sensor_gps_pub.publish(_gps_report);
 		// Heading/yaw data can be updated at a lower rate than the other navigation data.
 		// The uORB message definition requires this data to be set to a NAN if no new valid data is available.
-		_report_gps_pos.heading = NAN;
+		_gps_report.heading = NAN;
 		_is_gps_main_advertised.store(true);
 
-		if (_report_gps_pos.spoofing_state != _spoofing_state) {
+		if (_gps_report.spoofing_state != _spoofing_state) {
 
-			if (_report_gps_pos.spoofing_state > sensor_gps_s::SPOOFING_STATE_NONE) {
-				PX4_WARN("GPS spoofing detected! (state: %d)", _report_gps_pos.spoofing_state);
+			if (_gps_report.spoofing_state > sensor_gps_s::SPOOFING_STATE_NONE) {
+				PX4_WARN("GPS spoofing detected! (state: %d)", _gps_report.spoofing_state);
 			}
 
-			_spoofing_state = _report_gps_pos.spoofing_state;
+			_spoofing_state = _gps_report.spoofing_state;
 		}
 
-		if (_report_gps_pos.jamming_state != _jamming_state) {
+		if (_gps_report.jamming_state != _jamming_state) {
 
-			if (_report_gps_pos.jamming_state > sensor_gps_s::JAMMING_STATE_WARNING) {
-				PX4_WARN("GPS jamming detected! (state: %d) (indicator: %d)", _report_gps_pos.jamming_state,
-					 (uint8_t)_report_gps_pos.jamming_indicator);
+			if (_gps_report.jamming_state > sensor_gps_s::JAMMING_STATE_WARNING) {
+				PX4_WARN("GPS jamming detected! (state: %d) (indicator: %d)", _gps_report.jamming_state,
+					 (uint8_t)_gps_report.jamming_indicator);
 			}
 
-			_jamming_state = _report_gps_pos.jamming_state;
+			_jamming_state = _gps_report.jamming_state;
 		}
 	}
 }

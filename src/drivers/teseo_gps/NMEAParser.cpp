@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2020, 2021 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2024 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,209 +32,181 @@
  ****************************************************************************/
 
 #include "NMEAParser.hpp"
-#include <cstdio>
 
-NMEAParser::NMEAParser()
-    : _buffer_length(0)
-{}
+#include <math.h>
+#include <time.h>
 
-NMEAParser::~NMEAParser()
-{}
 
-int NMEAParser::parse(const uint8_t* buffer, int length)
+// Append data to the internal buffer, process the buffer, and return the number of messages parsed.
+int NMEAParser::parse(const uint8_t* buffer, unsigned length)
 {
-    // Append new data to the internal buffer
-    if (_buffer_length + length < NMEA_PARSER_BUFFER_SIZE) {
+    if (_buffer_length + length < sizeof(_buffer)) {
         memcpy(_buffer + _buffer_length, buffer, length);
         _buffer_length += length;
+
     } else {
-        // std::cout << "overflow" << std::endl;
-        // Handle buffer overflow here.
+        PX4_INFO("buffer overflow -- clearing");
+        _buffer_length = 0;
     }
 
-    // Process the buffer and return the number of messages parsed
-    return processBuffer();
+    return process_buffer();
 }
 
-const char* findCharInArray(const char* start, char c, int length)
+// Process the buffer and return the number of messages parsed.
+int NMEAParser::process_buffer()
 {
-    for (int i = 0; i < length; i++) {
-        if (start[i] == c) {
-            return &start[i];
-        }
-    }
-    return nullptr;
-}
-
-int NMEAParser::processBuffer()
-{
-    int messagesParsed = 0;
-    int startPos = 0;
+    int messages_parsed = 0;
+    int start_pos = 0;
     int bytes_remaining = _buffer_length;
+    int message_length = 0;
 
-    while (1) {
-        // Find the start ($) of an NMEA message, handling data with NULL values
-        const char* start = findCharInArray(_buffer + startPos, '$', bytes_remaining);
+    while (bytes_remaining != 0) {
 
-        if (bytes_remaining == 0) {
+        bool found_message_frame = false;
+        const char* start = nullptr;
+        const char* end = nullptr;
+
+        // Find the start ($) and end (*) an NMEA message
+        for (int i = start_pos; i < _buffer_length; i++) {
+            if (_buffer[i] == '$') {
+                start = &_buffer[i];
+
+            } else if (_buffer[i] == '*') {
+                end = &_buffer[i];
+            }
+
+            message_length = end - start + 5;
+
+            if (start && end && end > start && message_length <= bytes_remaining) {
+                found_message_frame = true;
+                break;
+            }
+        }
+
+        if (!found_message_frame) {
+            // 1. No start or end characters found
+            // 2. No start character found _before_ an end character
+            // 3. Start found but not end (incomplete, most common)
+            // 4. Start and end found but we may be missing the checksum and CR LF bytes
             break;
         }
 
-        if (!start) {
-            // std::cout << "missingstart: bytes_remaining:" << bytes_remaining << std::endl;
-            // std::string msg(_buffer + startPos, bytes_remaining);
-            // std::cout << "missing start: " << msg.c_str() << std::endl;
-            break;
-        }
+        if (validate_checksum(start, message_length)) {
+            messages_parsed++;
 
-        // Find the end (*) of the NMEA message, starting from the found start position
-        const char* end = findCharInArray(start, '*', _buffer + _buffer_length - start);
-        if (!end) {
-            // std::cout << "missing end" << std::endl;
-            break; // No end found from the start position, or message is likely incomplete
-        }
+            // Updates GNSS struct
+            handle_nmea_message(start, message_length);
 
-        // Found start and end of message
-        int messageLength = end - start + 5; // * (1), crc (2), crlf (2)
-
-        // $GNGGA,,,,,,0,00,0.0,,M,,M,,*56
-        // auto strmsg = std::string(start, messageLength);
-        // std::cout << strmsg << std::endl;
-        // $ + data + * + checksum
-
-        // Check if the length from start to the end of message including checksum and CRLF is within the buffer
-        if (messageLength > bytes_remaining) {
-            // std::cout << "incomplete message" << std::endl;
-            break; // Incomplete message
-        }
-
-        if (verifyChecksum(start, messageLength)) {
-            messagesParsed++;
-
-            // TODO: handle_message()
-
-            // Update startPos for the next message, including CRLF
-            startPos = (start - _buffer) + messageLength; // +3 for '*CS',, +2 for CRLF
+            // Increment to the start of next expected message
+            start_pos = (start - _buffer) + message_length;
 
         } else {
-            // std::cout << "Invalid checksum" << std::endl;
-            // If checksum is invalid or message incomplete, move startPos just after this '$'
-            startPos = (start - _buffer) + 1;
+            PX4_INFO("Invalid checksum");
+            // If checksum is invalid or message incomplete, move start_pos just after this '$'
+            start_pos = (start - _buffer) + 1;
         }
 
-        bytes_remaining = _buffer_length - startPos;
+        bytes_remaining = _buffer_length - start_pos;
     }
 
-    // Shift remaining data to the beginning of the buffer
-    if (startPos < _buffer_length) {
-        memmove(_buffer, _buffer + startPos, bytes_remaining);
-        _buffer_length -= startPos;
+    // If buffer iterator start_pos isn't pointing to the end of the buffer, shift remaining data to the beginning of the buffer
+    if (start_pos < _buffer_length) {
+        memmove(_buffer, _buffer + start_pos, bytes_remaining);
+        _buffer_length -= start_pos;
 
-        // std::cout << "bytes_remaining:" << bytes_remaining << std::endl;
+#if defined(DEBUG_BUILD)
+        PX4_INFO("Incomplete message");
+        PX4_INFO("bytes_remaining: %d", bytes_remaining);
 
-        for (int i = 0; i < _buffer_length; i++) {
+        for (size_t i = 0; i < _buffer_length; i++) {
             printf("%c", _buffer[i]);
         }
+
         printf("\n\n");
+#endif
 
     } else {
         _buffer_length = 0;
     }
 
-    return messagesParsed;
+    return messages_parsed;
 }
 
-
-bool NMEAParser::verifyChecksum(const char* nmeaMessage, int length)
+// Handles a NMEA message which has already been validated.
+void NMEAParser::handle_nmea_message(const char* buffer, int length)
 {
-    const char* asteriskPos = strchr(nmeaMessage, '*');
+    // For each message type a certain number of commas are expected
+    int comma_count = 0;
 
-    unsigned char calculatedChecksum = 0;
-    for (const char* p = nmeaMessage + 1; p < asteriskPos; p++) {
-        calculatedChecksum ^= *p;
+    for (int i = 0 ; i < length; i++) {
+        if (buffer[i] == ',') {
+            comma_count++;
+        }
     }
 
-    char receivedChecksumStr[3] = {asteriskPos[1], asteriskPos[2], '\0'};
-    int messageChecksum = 0;
-    sscanf(receivedChecksumStr, "%X", &messageChecksum);
+    // The ID starts after the first 3 bytes ($GN)
+    // The data starts after the first 6 bytes ($GNRMC)
 
-    return messageChecksum == calculatedChecksum;
+    if ((memcmp(buffer + 3, "GGA,", 4) == 0) && (comma_count >= 14)) {
+        _gga = handle_GGA(buffer + 6);
+
+    } else if ((memcmp(buffer + 3, "RMC,", 4) == 0) && (comma_count >= 11)) {
+        _rmc = handle_RMC(buffer + 6);
+
+    } else if ((memcmp(buffer + 3, "GST,", 4) == 0) && (comma_count == 8)) {
+        _gst = handle_GST(buffer + 6);
+
+    } else if ((memcmp(buffer + 3, "GSA,", 4) == 0) && (comma_count >= 17)) {
+        _gsa = handle_GSA(buffer + 6);
+
+    } else if ((memcmp(buffer + 3, "VTG,", 4) == 0) && (comma_count >= 8)) {
+        _vtg = handle_VTG(buffer + 6);
+
+    } else if ((memcmp(buffer + 1, "PSTM,", 5) == 0)) {
+        PX4_INFO("Got PSTM return: %s", buffer);
+
+        // TODO: GSV, GBS
+    } else {
+        char msg[4];
+        memcpy(msg, buffer + 3, 3);
+        msg[3] = '\0';
+        PX4_INFO("unknown message: %s", msg);
+    }
 }
 
+void NMEAParser::send_test_command()
+{
+// Reset to defaults
+// Enable SBAS and report SBAS
+// Enables Galileo and BeiDou
+// Set baudrate to 115200
+// Set fix rate to 10Hz
+// save params
+// reset to apply
 
-/*
- * All NMEA descriptions are taken from
- * http://www.trimble.com/OEM_ReceiverHelp/V4.44/en/NMEA-0183messages_MessageOverview.html
- */
-
-// int NMEAParser::handleMessage(int len)
-// {
-// 	// why???
-// 	if (len < 7) {
-// 		return 0;
-// 	}
-
-// 	// For each message type a certain number of commas are expected
-// 	int comma_count = 0;
-
-// 	for (int i = 0 ; i < len; i++) {
-// 		if (_rx_buffer[i] == ',') { comma_count++; }
-// 	}
-
-// 	// buffer pointer used for iteration over buffer
-// 	char *bufptr = (char *)(_rx_buffer + 6);
-// 	int ret = PX4_OK;
-
-// 	if ((memcmp(_rx_buffer + 3, "ZDA,", 4) == 0) && (comma_count == 6)) {
-// 		handle_ZDA(bufptr);
-
-// 	} else if ((memcmp(_rx_buffer + 3, "GGA,", 4) == 0) && (comma_count >= 14)) {
-// 		handle_GGA(bufptr);
-
-// 	} else if (memcmp(_rx_buffer + 3, "HDT,", 4) == 0 && comma_count == 2) {
-// 		handle_HDT(bufptr);
-
-// 	} else if ((memcmp(_rx_buffer + 3, "GNS,", 4) == 0) && (comma_count >= 12)) {
-// 		handle_GNS(bufptr);
-
-// 	} else if ((memcmp(_rx_buffer + 3, "RMC,", 4) == 0) && (comma_count >= 11)) {
-// 		handle_RMC(bufptr);
-
-// 	} else if ((memcmp(_rx_buffer + 3, "GST,", 4) == 0) && (comma_count == 8)) {
-// 		handle_GST(bufptr);
-
-// 	} else if ((memcmp(_rx_buffer + 3, "GSA,", 4) == 0) && (comma_count >= 17)) {
-// 		handle_GSA(bufptr);
-
-// 	} else if ((memcmp(_rx_buffer + 3, "GSV,", 4) == 0)) {
-// 		handle_GSV(bufptr);
-
-// 	} else if ((memcmp(_rx_buffer + 3, "VTG,", 4) == 0) && (comma_count >= 8)) {
-// 		handle_VTG(bufptr);
-// 	}
+// $PSTMRESTOREPAR
+// $PSTMSETPAR,1200,0x1000000C,1
+// $PSTMSETPAR,1227,0x3C0,1
+// $PSTMSETPAR,1102,0xA
+// $PSTMSETPAR,1303,0.1
+// $PSTMSAVEPAR
+// $PSTMSRR
 
 
-// 	// Whats down here?
+}
 
-// 	if (_sat_num_gga > 0) {
-// 		_gps_position->satellites_used = _sat_num_gga;
+bool NMEAParser::validate_checksum(const char* nmea_message, int length)
+{
+    // Example --  $GNGSA,A,1,,,,,,,,,,,,,0.0,0.0,0.0,4*36<CR><LF>
+    int recv_checksum = 0;
+    unsigned char calc_checksum = 0;
+    char recv_checksum_str[3] = {nmea_message[length - 4], nmea_message[length - 3], '\0'};
+    sscanf(recv_checksum_str, "%X", &recv_checksum);
 
-// 	} else if (_SVNUM_received && _SVINFO_received && _FIX_received) {
+    // Start after $ and end before *
+    for (int i = 1; i < length - 5; i++) {
+        calc_checksum ^= nmea_message[i];
+    }
 
-// 		_sat_num_gsv = _sat_num_gpgsv + _sat_num_glgsv + _sat_num_gagsv
-// 			       + _sat_num_gbgsv + _sat_num_bdgsv;
-// 		_gps_position->satellites_used = MAX(_sat_num_gns, _sat_num_gsv);
-// 	}
-
-// 	if (_VEL_received && _POS_received) {
-// 		ret = 1;
-// 		_gps_position->timestamp_time_relative = (int32_t)(_last_timestamp_time - _gps_position->timestamp);
-// 		_clock_set = false;
-// 		_VEL_received = false;
-// 		_POS_received = false;
-// 		_rate_count_vel++;
-// 		_rate_count_lat_lon++;
-// 	}
-
-// 	return ret;
-// }
+    return recv_checksum == calc_checksum;
+}

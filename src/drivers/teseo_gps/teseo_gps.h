@@ -84,6 +84,7 @@ public:
 	int print_status() override;
 
 private:
+	void update_gps_report();
 	int						_serial_fd{-1};
 	unsigned				_baudrate{0};
 	char					_port[20] {};					///< device / serial port path
@@ -94,11 +95,11 @@ private:
 	bool					_healthy{false};				///< flag to signal if the GPS is ok
 
 
-	sensor_gps_s			_report_gps_pos{};				///< uORB topic for gps position
+	sensor_gps_s			_gps_report{};
 	uint8_t                 _spoofing_state{0};                             ///< spoofing state
 	uint8_t                 _jamming_state{0};                              ///< jamming state
 
-	uORB::PublicationMulti<sensor_gps_s>	_report_gps_pos_pub{ORB_ID(sensor_gps)};	///< uORB pub for gps position
+	uORB::PublicationMulti<sensor_gps_s>	_sensor_gps_pub{ORB_ID(sensor_gps)};
 	uORB::PublicationMulti<sensor_gnss_relative_s> _sensor_gnss_relative_pub{ORB_ID(sensor_gnss_relative)};
 
 	float				_rate{0.0f};					///< position update rate

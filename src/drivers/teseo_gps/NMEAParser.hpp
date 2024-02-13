@@ -34,18 +34,45 @@
 #pragma once
 
 #include <cstring>
+#include "msgs/GGA.hpp"
+#include "msgs/GSA.hpp"
+#include "msgs/GST.hpp"
+#include "msgs/RMC.hpp"
+#include "msgs/VTG.hpp"
 
-class NMEAParser {
+#include "px4_platform_common/log.h"
+
+
+class NMEAParser
+{
 public:
-    NMEAParser();
-    ~NMEAParser();
-    int parse(const uint8_t* buffer, int length);
+    int parse(const uint8_t* buffer, unsigned length); // Returns the number of messages parsed
+
+    RMC_Data* RMC() { return &_rmc; };
+    GGA_Data* GGA() { return &_gga; };
+    VTG_Data* VTG() { return &_vtg; };
+    GST_Data* GST() { return &_gst; };
+    GSA_Data* GSA() { return &_gsa; };
+
+    void send_test_command();
 
 private:
-    static const int NMEA_PARSER_BUFFER_SIZE = 2048; // Adjust size as needed based on the expected length of NMEA messages
-    char _buffer[NMEA_PARSER_BUFFER_SIZE] = {};    // Buffer to hold raw data and incomplete NMEA messages
+    // Parses an NMEA message and updates the NMEA data structures
+    void handle_nmea_message(const char* buffer, int length);
+
+
+    // Process the buffer and return the number of messages parsed
+    int process_buffer();
+    bool validate_checksum(const char* nmeaMessage, int length);
+
+    static const int BUFFER_SIZE = 2048;
+    char _buffer[2048] = {};
     int _buffer_length = 0;
 
-    int processBuffer();                 // Process the buffer and return the number of messages parsed
-    bool verifyChecksum(const char* nmeaMessage, int length); // Verify the checksum of an NMEA message
+    RMC_Data _rmc;
+    GGA_Data _gga;
+    VTG_Data _vtg;
+    GST_Data _gst;
+    GSA_Data _gsa;
+    // GBS_Data _gbs;
 };
