@@ -91,7 +91,6 @@ private:
 
 	NMEAParser 			   _parser{};
 
-
 	bool					_healthy{false};				///< flag to signal if the GPS is ok
 
 
@@ -100,7 +99,6 @@ private:
 	uint8_t                 _jamming_state{0};                              ///< jamming state
 
 	uORB::PublicationMulti<sensor_gps_s>	_sensor_gps_pub{ORB_ID(sensor_gps)};
-	uORB::PublicationMulti<sensor_gnss_relative_s> _sensor_gnss_relative_pub{ORB_ID(sensor_gnss_relative)};
 
 	float				_rate{0.0f};					///< position update rate
 	unsigned			_num_bytes_read{0}; 				///< counter for number of read bytes from the UART (within update interval)
@@ -115,7 +113,6 @@ private:
 
 
 	void 				publish();
-	void 				publishRelativePosition(sensor_gnss_relative_s &gnss_relative);
 
 	/**
 	 * This is an abstraction for the poll on serial used.

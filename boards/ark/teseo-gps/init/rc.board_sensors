@@ -3,7 +3,7 @@
 # board sensors init
 #------------------------------------------------------------------------------
 echo "Starting Teseo GPS"
-gps start -d /dev/ttyS0 -b 460800 -p nmea
+teseo_gps start -d /dev/ttyS0 -b 115200
 
 icm42688p -R 0 -s start
 

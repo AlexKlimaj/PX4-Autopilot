@@ -84,6 +84,63 @@ TeseoGPS::~TeseoGPS()
 	}
 }
 
+void
+TeseoGPS::run()
+{
+	while (!should_exit()) {
+
+		_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
+
+		if (_serial_fd < 0) {
+			PX4_ERR("failed to open %s err: %d", _port, errno);
+			px4_sleep(1);
+			continue;
+		} else {
+			break;
+		}
+	}
+
+	if (should_exit()) {
+		return;
+	}
+
+	setBaudrate(_baudrate);
+
+	set_device_type(DRV_GPS_DEVTYPE_NMEA);
+
+	// TODO: configure() : send commands to configure the modules (constellations, rate, filter, etc)
+
+
+	// -------------------------------- //
+	// ----- Main read/parse loop ----- //
+	// -------------------------------- //
+
+	uint8_t rxbuf[1024] {};
+
+	int timeout_ms = 100;
+
+	while (!should_exit()) {
+
+		int bytes_read = read_serial_port(rxbuf, sizeof(rxbuf), timeout_ms);
+
+		if (bytes_read > 0) {
+			// PX4_INFO("read %d", bytes_read);
+			int parsed_count = _parser.parse(rxbuf, bytes_read);
+
+			if (parsed_count > 0) {
+				// update gps_report
+				update_gps_report();
+				publish();
+			}
+
+			// TODO: get pos/vel update info from the parser
+
+			// TODO: get gps_report from the parser
+
+			(void)parsed_count;
+		}
+	}
+}
 
 void TeseoGPS::update_gps_report()
 {
@@ -187,6 +244,8 @@ void TeseoGPS::update_gps_report()
     uint64_t usecs = static_cast<uint64_t>((utc_sec - static_cast<uint64_t>(utc_sec)) * 1000000);
     _gps_report.time_utc_usec = static_cast<uint64_t>(epoch) * 1000000ULL;
     _gps_report.time_utc_usec += usecs;
+
+    _gps_report.timestamp = hrt_absolute_time();
 }
 
 int TeseoGPS::read_serial_port(uint8_t* buf, size_t size, int timeout)
@@ -233,58 +292,6 @@ int TeseoGPS::read_serial_port(uint8_t* buf, size_t size, int timeout)
 
 	// Return bytes read
 	return ret;
-}
-
-void
-TeseoGPS::run()
-{
-	while (!should_exit()) {
-
-		_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
-
-		if (_serial_fd < 0) {
-			PX4_ERR("failed to open %s err: %d", _port, errno);
-			px4_sleep(1);
-			continue;
-		}
-	}
-
-	if (should_exit()) {
-		return;
-	}
-
-	set_device_type(DRV_GPS_DEVTYPE_NMEA);
-
-	// TODO: configure() : send commands to configure the modules (constellations, rate, filter, etc)
-
-
-	// -------------------------------- //
-	// ----- Main read/parse loop ----- //
-	// -------------------------------- //
-
-	uint8_t rxbuf[1024] {};
-
-	int timeout_ms = 100;
-
-	while (!should_exit()) {
-
-		int bytes_read = read_serial_port(rxbuf, sizeof(rxbuf), timeout_ms);
-
-		if (bytes_read > 0) {
-			int parsed_count = _parser.parse(rxbuf, bytes_read);
-
-			if (parsed_count > 0) {
-				// update gps_report
-				update_gps_report();
-			}
-
-			// TODO: get pos/vel update info from the parser
-
-			// TODO: get gps_report from the parser
-
-			(void)parsed_count;
-		}
-	}
 }
 
 int TeseoGPS::setBaudrate(unsigned baud)
@@ -438,13 +445,6 @@ void TeseoGPS::publish()
 	}
 }
 
-void TeseoGPS::publishRelativePosition(sensor_gnss_relative_s &gnss_relative)
-{
-	gnss_relative.device_id = get_device_id();
-	gnss_relative.timestamp = hrt_absolute_time();
-	_sensor_gnss_relative_pub.publish(gnss_relative);
-}
-
 int TeseoGPS::custom_command(int argc, char *argv[])
 {
 	if (!is_running()) {
@@ -514,7 +514,7 @@ int TeseoGPS::task_spawn(int argc, char *argv[], Instance instance)
 		entry_point = (px4_main_t)&run_trampoline_secondary;
 	}
 
-	int task_id = px4_task_spawn_cmd("gps", SCHED_DEFAULT,
+	int task_id = px4_task_spawn_cmd("teseo_gps", SCHED_DEFAULT,
 				   SCHED_PRIORITY_SLOW_DRIVER, TASK_STACK_SIZE,
 				   entry_point, (char *const *)argv);
 

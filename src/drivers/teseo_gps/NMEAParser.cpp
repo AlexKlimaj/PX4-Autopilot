@@ -40,23 +40,31 @@
 // Append data to the internal buffer, process the buffer, and return the number of messages parsed.
 int NMEAParser::parse(const uint8_t* buffer, unsigned length)
 {
+    int messages_parsed = 0;
+
     if (_buffer_length + length < sizeof(_buffer)) {
         memcpy(_buffer + _buffer_length, buffer, length);
         _buffer_length += length;
+
+        messages_parsed = process_buffer();
+
+#if defined(DEBUG_BUILD)
+        PX4_INFO("parsed %d messages", parsed_count);
+#endif
 
     } else {
         PX4_INFO("buffer overflow -- clearing");
         _buffer_length = 0;
     }
 
-    return process_buffer();
+    return messages_parsed;
 }
 
 // Process the buffer and return the number of messages parsed.
 int NMEAParser::process_buffer()
 {
     int messages_parsed = 0;
-    int start_pos = 0;
+    unsigned start_pos = 0;
     int bytes_remaining = _buffer_length;
     int message_length = 0;
 
@@ -67,7 +75,7 @@ int NMEAParser::process_buffer()
         const char* end = nullptr;
 
         // Find the start ($) and end (*) an NMEA message
-        for (int i = start_pos; i < _buffer_length; i++) {
+        for (unsigned i = start_pos; i < _buffer_length; i++) {
             if (_buffer[i] == '$') {
                 start = &_buffer[i];
 
@@ -165,12 +173,16 @@ void NMEAParser::handle_nmea_message(const char* buffer, int length)
     } else if ((memcmp(buffer + 1, "PSTM,", 5) == 0)) {
         PX4_INFO("Got PSTM return: %s", buffer);
 
-        // TODO: GSV, GBS
+        // TODO:
+        // GSV: GNSS Satellites in View. Per constellation info
+        // GBS: GNSS satellite fault detection (RAIM support) -- turn it off?
     } else {
+#if defined(DEBUG_BUILD)
         char msg[4];
         memcpy(msg, buffer + 3, 3);
         msg[3] = '\0';
         PX4_INFO("unknown message: %s", msg);
+#endif
     }
 }
 

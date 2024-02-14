@@ -60,14 +60,13 @@ private:
     // Parses an NMEA message and updates the NMEA data structures
     void handle_nmea_message(const char* buffer, int length);
 
-
     // Process the buffer and return the number of messages parsed
     int process_buffer();
     bool validate_checksum(const char* nmeaMessage, int length);
 
     static const int BUFFER_SIZE = 2048;
     char _buffer[2048] = {};
-    int _buffer_length = 0;
+    unsigned _buffer_length = 0;
 
     RMC_Data _rmc;
     GGA_Data _gga;

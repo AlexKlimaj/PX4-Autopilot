@@ -36,22 +36,8 @@ px4_add_module(
 	MAIN teseo_gps
 	COMPILE_FLAGS
 		-Wno-stringop-overflow # due to https://gcc.gnu.org/bugzilla/show_bug.cgi?id=91707
+		# -DDEBUG_BUILD
 	SRCS
 		teseo_gps.cpp
 		NMEAParser.cpp
-		# gps.cpp
-		# devices/src/crc.cpp
-		# devices/src/gps_helper.cpp
-		# devices/src/mtk.cpp
-		# devices/src/ashtech.cpp
-		# devices/src/ubx.cpp
-		# devices/src/rtcm.cpp
-		# devices/src/emlid_reach.cpp
-		# devices/src/femtomes.cpp
-		# devices/src/nmea.cpp
-		# devices/src/unicore.cpp
-		# devices/src/crc.cpp
-		# devices/src/sbf.cpp
-	MODULE_CONFIG
-		module.yaml
 	)
