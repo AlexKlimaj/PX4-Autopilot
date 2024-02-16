@@ -93,17 +93,12 @@ void TeseoGPS::update_and_publish()
 {
 	RMC_Data* rmc = _parser.RMC();
 	GGA_Data* gga = _parser.GGA();
-	// VTG_Data* vtg = _parser.VTG();
 	GST_Data* gst = _parser.GST();
 	GSA_Data* gsa = _parser.GSA();
-
-	// TODO: do we want to use this?
-	// (void)vtg;
 
 	double lat = gga->lat;
 	double lon = gga->lon;
 
-	///// GGA
 	if (gga->ns == 'S') {
 		lat = -lat;
 	}
@@ -136,24 +131,13 @@ void TeseoGPS::update_and_publish()
 	_gps_report.altitude_msl_m = (double)gga->alt;
 	_gps_report.altitude_ellipsoid_m = (double)(gga->alt + gga->geo_sep);
 
-	// Only report sats if there's a fix
-	if (_gps_report.fix_type > 1) {
-		_gps_report.satellites_used = gga->sats;
-
-	} else {
-		_gps_report.satellites_used = 0;
-	}
-
-	///// GST
 	_gps_report.eph = sqrtf(gst->lat_err * gst->lat_err + gst->lon_err * gst->lon_err);
 	_gps_report.epv = gst->alt_err;
 	_gps_report.ehpe = gst->ehpe;
 
-	///// GSA
 	_gps_report.hdop = gsa->hdop;
 	_gps_report.vdop = gsa->vdop;
 
-	///// RMC
 	float velocity_ms = rmc->speed / 1.9438445f; // knots to m/s
 	float track_rad = rmc->track_good * M_PI_F / 180.0f; // rad in range [0, 2pi]
 
@@ -169,36 +153,46 @@ void TeseoGPS::update_and_publish()
 		_gps_report.fix_type = 0;
 	}
 
-	// Calculate UTC time since epoch
-	double utc_time = rmc->timestamp;
-	int utc_hour = static_cast<int>(utc_time / 10000);
-	int utc_minute = static_cast<int>((utc_time - utc_hour * 10000) / 100);
-	double utc_sec = static_cast<double>(utc_time - utc_hour * 10000 - utc_minute * 100);
-	int nmea_day = static_cast<int>(rmc->date / 10000);
-	int nmea_mth = static_cast<int>((rmc->date - nmea_day * 10000) / 100);
-	int nmea_year = static_cast<int>(rmc->date - nmea_day * 10000 - nmea_mth * 100);
-	// convert to unix timestamp
-	struct tm timeinfo = {};
-	timeinfo.tm_year = nmea_year + 100;
-	timeinfo.tm_mon = nmea_mth - 1;
-	timeinfo.tm_mday = nmea_day;
-	timeinfo.tm_hour = utc_hour;
-	timeinfo.tm_min = utc_minute;
-	timeinfo.tm_sec = int(utc_sec);
-	timeinfo.tm_isdst = 0;
+	// Only report sats if there's a fix
+	if (_gps_report.fix_type > 1) {
+		_gps_report.satellites_used = gga->sats;
 
-	time_t epoch = mktime(&timeinfo);
-	uint64_t usecs = static_cast<uint64_t>((utc_sec - static_cast<uint64_t>(utc_sec)) * 1000000);
-	_gps_report.time_utc_usec = static_cast<uint64_t>(epoch) * 1000000ULL;
-	_gps_report.time_utc_usec += usecs;
+	} else {
+		_gps_report.satellites_used = 0;
+	}
 
-	// Set clock if it hasn't been set or if the time has drifted too far
-	if (!_clock_set) {
-		timespec ts{};
-		ts.tv_sec = epoch;
-		ts.tv_nsec = usecs * 1000;
-		PX4_INFO("Setting system clock");
-		px4_clock_settime(CLOCK_REALTIME, &ts);
+	if (static_cast<int>(rmc->timestamp) != 0) {
+		// Calculate UTC time since epoch
+		double utc_time = rmc->timestamp;
+		int utc_hour = static_cast<int>(utc_time / 10000);
+		int utc_minute = static_cast<int>((utc_time - utc_hour * 10000) / 100);
+		double utc_sec = static_cast<double>(utc_time - utc_hour * 10000 - utc_minute * 100);
+		int nmea_day = static_cast<int>(rmc->date / 10000);
+		int nmea_mth = static_cast<int>((rmc->date - nmea_day * 10000) / 100);
+		int nmea_year = static_cast<int>(rmc->date - nmea_day * 10000 - nmea_mth * 100);
+		// convert to unix timestamp
+		struct tm timeinfo = {};
+		timeinfo.tm_year = nmea_year + 100;
+		timeinfo.tm_mon = nmea_mth - 1;
+		timeinfo.tm_mday = nmea_day;
+		timeinfo.tm_hour = utc_hour;
+		timeinfo.tm_min = utc_minute;
+		timeinfo.tm_sec = int(utc_sec);
+		timeinfo.tm_isdst = 0;
+
+		time_t epoch = mktime(&timeinfo);
+		uint64_t usecs = static_cast<uint64_t>((utc_sec - static_cast<uint64_t>(utc_sec)) * 1000000);
+		_gps_report.time_utc_usec = static_cast<uint64_t>(epoch) * 1000000ULL;
+		_gps_report.time_utc_usec += usecs;
+
+		if (!_clock_set) {
+			timespec ts{};
+			ts.tv_sec = epoch;
+			ts.tv_nsec = usecs * 1000;
+			PX4_INFO("Setting system clock: %ld", epoch);
+			px4_clock_settime(CLOCK_REALTIME, &ts);
+			_clock_set = true;
+		}
 	}
 
 	_gps_report.timestamp = hrt_absolute_time();

@@ -25,7 +25,7 @@ struct RMC_Data {
 	// <checksum>
 	// <cr><lf>
 
-	float timestamp = 0.0;
+	float timestamp = 0.f;
 	char status = 'V';
 	double lat = 0.0;
 	char ns = '?';
