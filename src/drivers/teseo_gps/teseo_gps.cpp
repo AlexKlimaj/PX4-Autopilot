@@ -146,7 +146,7 @@ void TeseoGPS::update_and_publish()
 	_gps_report.vel_e_m_s = velocity_ms * sinf(track_rad);
 	_gps_report.cog_rad = track_rad;
 
-	_gps_report.vel_ned_valid = rmc->mode != 'N';
+	_gps_report.vel_ned_valid = rmc->mode != 'N' && rmc->nav_status != 'V';
 
 	// If RMC says No Fix
 	if (rmc->status == 'V') {
@@ -161,7 +161,8 @@ void TeseoGPS::update_and_publish()
 		_gps_report.satellites_used = 0;
 	}
 
-	if (static_cast<int>(rmc->timestamp) != 0) {
+	// Only set the clock if we have a fix, otherwise UTC time has been observed as incorrect
+	if (_gps_report.fix_type > 1 && static_cast<int>(rmc->timestamp) != 0) {
 		// Calculate UTC time since epoch
 		double utc_time = rmc->timestamp;
 		int utc_hour = static_cast<int>(utc_time / 10000);
