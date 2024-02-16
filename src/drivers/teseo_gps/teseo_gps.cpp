@@ -189,9 +189,14 @@ void TeseoGPS::update_and_publish()
 			timespec ts{};
 			ts.tv_sec = epoch;
 			ts.tv_nsec = usecs * 1000;
-			PX4_INFO("Setting system clock: %ld", epoch);
 			px4_clock_settime(CLOCK_REALTIME, &ts);
 			_clock_set = true;
+
+			char buf[40];
+			struct tm date_time;
+			localtime_r(&ts.tv_sec, &date_time);
+			strftime(buf, sizeof(buf), "%a %Y-%m-%d %H:%M:%S %Z", &date_time);
+			PX4_INFO("Successfully set system clock: %s", buf);
 		}
 	}
 
