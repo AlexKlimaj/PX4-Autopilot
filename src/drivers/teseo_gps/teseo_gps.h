@@ -67,7 +67,6 @@ private:
 	int setBaudrate(unsigned baud);
 
 	void update_and_publish();
-	void jamming_spoofing_check();
 
 	int             _serial_fd{-1};
 	unsigned        _baudrate{0};
@@ -77,8 +76,6 @@ private:
 	NMEAParser      _parser{};
 
 	sensor_gps_s 	_gps_report{};
-	uint8_t         _spoofing_state{0};
-	uint8_t         _jamming_state{0};
 
 	perf_counter_t	_read_error;
 

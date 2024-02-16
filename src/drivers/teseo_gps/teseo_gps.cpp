@@ -205,30 +205,6 @@ void TeseoGPS::update_and_publish()
 	_gps_report.device_id = get_device_id();
 
 	_sensor_gps_pub.publish(_gps_report);
-
-	jamming_spoofing_check();
-}
-
-void TeseoGPS::jamming_spoofing_check()
-{
-	if (_gps_report.spoofing_state != _spoofing_state) {
-
-		if (_gps_report.spoofing_state > sensor_gps_s::SPOOFING_STATE_NONE) {
-			PX4_WARN("GPS spoofing detected! (state: %d)", _gps_report.spoofing_state);
-		}
-
-		_spoofing_state = _gps_report.spoofing_state;
-	}
-
-	if (_gps_report.jamming_state != _jamming_state) {
-
-		if (_gps_report.jamming_state > sensor_gps_s::JAMMING_STATE_WARNING) {
-			PX4_WARN("GPS jamming detected! (state: %d) (indicator: %d)", _gps_report.jamming_state,
-				 (uint8_t)_gps_report.jamming_indicator);
-		}
-
-		_jamming_state = _gps_report.jamming_state;
-	}
 }
 
 int TeseoGPS::read_serial_port(uint8_t* buf, size_t size, int timeout_ms)
