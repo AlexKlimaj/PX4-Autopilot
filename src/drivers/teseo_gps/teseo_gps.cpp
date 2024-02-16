@@ -31,30 +31,15 @@
  *
  ****************************************************************************/
 
-#include <nuttx/clock.h>
-#include <nuttx/arch.h>
-
 #include "teseo_gps.h"
 
-using namespace time_literals;
-
-#define TIMEOUT_1HZ		1300	//!< Timeout time in mS, 1000 mS (1Hz) + 300 mS delta for error
-#define TIMEOUT_5HZ		500		//!< Timeout time in mS,  200 mS (5Hz) + 300 mS delta for error
-#define RATE_MEASUREMENT_PERIOD 5_s
-
-
-static constexpr int TASK_STACK_SIZE = PX4_STACK_ADJUSTED(2040);
-
-px4::atomic_bool TeseoGPS::_is_gps_main_advertised{false};
-px4::atomic<TeseoGPS*> TeseoGPS::_secondary_instance{nullptr};
-
-TeseoGPS::TeseoGPS(const char *path, Instance instance, unsigned baudrate) :
+TeseoGPS::TeseoGPS(const char* device_path, unsigned baudrate) :
 	Device(MODULE_NAME),
 	_baudrate(baudrate),
-	_instance(instance)
+	_read_error(perf_alloc(PC_COUNT, MODULE_NAME": read error"))
 {
 	// store port name
-	strncpy(_port, path, sizeof(_port) - 1);
+	strncpy(_port, device_path, sizeof(_port) - 1);
 	// enforce null termination
 	_port[sizeof(_port) - 1] = '\0';
 
@@ -69,38 +54,15 @@ TeseoGPS::TeseoGPS(const char *path, Instance instance, unsigned baudrate) :
 
 TeseoGPS::~TeseoGPS()
 {
-	TeseoGPS* secondary_instance = _secondary_instance.load();
-
-	if (_instance == Instance::Main && secondary_instance) {
-		secondary_instance->request_stop();
-
-		// wait for it to exit
-		unsigned int i = 0;
-
-		do {
-			px4_usleep(20000); // 20 ms
-			++i;
-		} while (_secondary_instance.load() && i < 100);
-	}
+	perf_free(_read_error);
 }
 
-void
-TeseoGPS::run()
+void TeseoGPS::run()
 {
-	while (!should_exit()) {
+	_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
 
-		_serial_fd = ::open(_port, O_RDWR | O_NOCTTY);
-
-		if (_serial_fd < 0) {
-			PX4_ERR("failed to open %s err: %d", _port, errno);
-			px4_sleep(1);
-			continue;
-		} else {
-			break;
-		}
-	}
-
-	if (should_exit()) {
+	if (_serial_fd < 0) {
+		PX4_ERR("failed to open %s err: %d", _port, errno);
 		return;
 	}
 
@@ -110,13 +72,7 @@ TeseoGPS::run()
 
 	// TODO: configure() : send commands to configure the modules (constellations, rate, filter, etc)
 
-
-	// -------------------------------- //
-	// ----- Main read/parse loop ----- //
-	// -------------------------------- //
-
 	uint8_t rxbuf[1024] {};
-
 	int timeout_ms = 100;
 
 	while (!should_exit()) {
@@ -124,25 +80,16 @@ TeseoGPS::run()
 		int bytes_read = read_serial_port(rxbuf, sizeof(rxbuf), timeout_ms);
 
 		if (bytes_read > 0) {
-			// PX4_INFO("read %d", bytes_read);
 			int parsed_count = _parser.parse(rxbuf, bytes_read);
 
 			if (parsed_count > 0) {
-				// update gps_report
-				update_gps_report();
-				publish();
+				update_and_publish();
 			}
-
-			// TODO: get pos/vel update info from the parser
-
-			// TODO: get gps_report from the parser
-
-			(void)parsed_count;
 		}
 	}
 }
 
-void TeseoGPS::update_gps_report()
+void TeseoGPS::update_and_publish()
 {
 	RMC_Data* rmc = _parser.RMC();
 	GGA_Data* gga = _parser.GGA();
@@ -156,99 +103,135 @@ void TeseoGPS::update_gps_report()
 	double lat = gga->lat;
 	double lon = gga->lon;
 
-    ///// GGA
-    if (gga->ns == 'S') {
-        lat = -lat;
-    }
+	///// GGA
+	if (gga->ns == 'S') {
+		lat = -lat;
+	}
 
-    if (gga->ew == 'W') {
-        lon = -lon;
-    }
+	if (gga->ew == 'W') {
+		lon = -lon;
+	}
 
-    // Convert to PX4 definitions
-    switch (gga->fix_quality) {
-    case 1:
-        // 3D fix
-        _gps_report.fix_type = 3;
-        break;
+	// Convert to PX4 definitions
+	switch (gga->fix_quality) {
+	case 1:
+		// 3D fix
+		_gps_report.fix_type = 3;
+		break;
 
-    case 2:
-        // Differential
-        _gps_report.fix_type = 4;
-        break;
+	case 2:
+		// Differential
+		_gps_report.fix_type = 4;
+		break;
 
-    case 6:
-        // Dead reckoning we'll call 2D fix
-        _gps_report.fix_type = 2;
-        break;
-    }
+	case 6:
+		// Dead reckoning we'll call 2D fix
+		_gps_report.fix_type = 2;
+		break;
+	}
 
-    _gps_report.longitude_deg = int(lon * 0.01) + (lon * 0.01 - int(lon * 0.01)) * 100.0 / 60.0;
-    _gps_report.latitude_deg = int(lat * 0.01) + (lat * 0.01 - int(lat * 0.01)) * 100.0 / 60.0;
-    _gps_report.hdop = gga->hdop;
-    _gps_report.altitude_msl_m = (double)gga->alt;
-    _gps_report.altitude_ellipsoid_m = (double)(gga->alt + gga->geo_sep);
+	_gps_report.longitude_deg = int(lon * 0.01) + (lon * 0.01 - int(lon * 0.01)) * 100.0 / 60.0;
+	_gps_report.latitude_deg = int(lat * 0.01) + (lat * 0.01 - int(lat * 0.01)) * 100.0 / 60.0;
+	_gps_report.hdop = gga->hdop;
+	_gps_report.altitude_msl_m = (double)gga->alt;
+	_gps_report.altitude_ellipsoid_m = (double)(gga->alt + gga->geo_sep);
 
-    // Only report sats if there's a fix
-    if (_gps_report.fix_type > 1) {
-        _gps_report.satellites_used = gga->sats;
+	// Only report sats if there's a fix
+	if (_gps_report.fix_type > 1) {
+		_gps_report.satellites_used = gga->sats;
 
-    } else {
-        _gps_report.satellites_used = 0;
-    }
+	} else {
+		_gps_report.satellites_used = 0;
+	}
 
-    ///// GST
-    _gps_report.eph = sqrtf(gst->lat_err * gst->lat_err + gst->lon_err * gst->lon_err);
-    _gps_report.epv = gst->alt_err;
-    _gps_report.ehpe = gst->ehpe;
+	///// GST
+	_gps_report.eph = sqrtf(gst->lat_err * gst->lat_err + gst->lon_err * gst->lon_err);
+	_gps_report.epv = gst->alt_err;
+	_gps_report.ehpe = gst->ehpe;
 
-    ///// GSA
-    _gps_report.hdop = gsa->hdop;
-    _gps_report.vdop = gsa->vdop;
+	///// GSA
+	_gps_report.hdop = gsa->hdop;
+	_gps_report.vdop = gsa->vdop;
 
-    ///// RMC
-    float velocity_ms = rmc->speed / 1.9438445f; // knots to m/s
-    float track_rad = rmc->track_good * M_PI_F / 180.0f; // rad in range [0, 2pi]
+	///// RMC
+	float velocity_ms = rmc->speed / 1.9438445f; // knots to m/s
+	float track_rad = rmc->track_good * M_PI_F / 180.0f; // rad in range [0, 2pi]
 
-    _gps_report.vel_m_s = velocity_ms;
-    _gps_report.vel_n_m_s = velocity_ms * cosf(track_rad);
-    _gps_report.vel_e_m_s = velocity_ms * sinf(track_rad);
-    _gps_report.cog_rad = track_rad;
+	_gps_report.vel_m_s = velocity_ms;
+	_gps_report.vel_n_m_s = velocity_ms * cosf(track_rad);
+	_gps_report.vel_e_m_s = velocity_ms * sinf(track_rad);
+	_gps_report.cog_rad = track_rad;
 
-    _gps_report.vel_ned_valid = rmc->mode != 'N';
+	_gps_report.vel_ned_valid = rmc->mode != 'N';
 
-    // If RMC says No Fix
-    if (rmc->status == 'V') {
-        _gps_report.fix_type = 0;
-    }
+	// If RMC says No Fix
+	if (rmc->status == 'V') {
+		_gps_report.fix_type = 0;
+	}
 
-    // Calculate UTC time since epoch
-    double utc_time = rmc->timestamp;
-    int utc_hour = static_cast<int>(utc_time / 10000);
-    int utc_minute = static_cast<int>((utc_time - utc_hour * 10000) / 100);
-    double utc_sec = static_cast<double>(utc_time - utc_hour * 10000 - utc_minute * 100);
-    int nmea_day = static_cast<int>(rmc->date / 10000);
-    int nmea_mth = static_cast<int>((rmc->date - nmea_day * 10000) / 100);
-    int nmea_year = static_cast<int>(rmc->date - nmea_day * 10000 - nmea_mth * 100);
-    // convert to unix timestamp
-    struct tm timeinfo = {};
-    timeinfo.tm_year = nmea_year + 100;
-    timeinfo.tm_mon = nmea_mth - 1;
-    timeinfo.tm_mday = nmea_day;
-    timeinfo.tm_hour = utc_hour;
-    timeinfo.tm_min = utc_minute;
-    timeinfo.tm_sec = int(utc_sec);
-    timeinfo.tm_isdst = 0;
+	// Calculate UTC time since epoch
+	double utc_time = rmc->timestamp;
+	int utc_hour = static_cast<int>(utc_time / 10000);
+	int utc_minute = static_cast<int>((utc_time - utc_hour * 10000) / 100);
+	double utc_sec = static_cast<double>(utc_time - utc_hour * 10000 - utc_minute * 100);
+	int nmea_day = static_cast<int>(rmc->date / 10000);
+	int nmea_mth = static_cast<int>((rmc->date - nmea_day * 10000) / 100);
+	int nmea_year = static_cast<int>(rmc->date - nmea_day * 10000 - nmea_mth * 100);
+	// convert to unix timestamp
+	struct tm timeinfo = {};
+	timeinfo.tm_year = nmea_year + 100;
+	timeinfo.tm_mon = nmea_mth - 1;
+	timeinfo.tm_mday = nmea_day;
+	timeinfo.tm_hour = utc_hour;
+	timeinfo.tm_min = utc_minute;
+	timeinfo.tm_sec = int(utc_sec);
+	timeinfo.tm_isdst = 0;
 
-    time_t epoch = mktime(&timeinfo);
-    uint64_t usecs = static_cast<uint64_t>((utc_sec - static_cast<uint64_t>(utc_sec)) * 1000000);
-    _gps_report.time_utc_usec = static_cast<uint64_t>(epoch) * 1000000ULL;
-    _gps_report.time_utc_usec += usecs;
+	time_t epoch = mktime(&timeinfo);
+	uint64_t usecs = static_cast<uint64_t>((utc_sec - static_cast<uint64_t>(utc_sec)) * 1000000);
+	_gps_report.time_utc_usec = static_cast<uint64_t>(epoch) * 1000000ULL;
+	_gps_report.time_utc_usec += usecs;
 
-    _gps_report.timestamp = hrt_absolute_time();
+	// Set clock if it hasn't been set or if the time has drifted too far
+	if (!_clock_set) {
+		timespec ts{};
+		ts.tv_sec = epoch;
+		ts.tv_nsec = usecs * 1000;
+		PX4_INFO("Setting system clock");
+		px4_clock_settime(CLOCK_REALTIME, &ts);
+	}
+
+	_gps_report.timestamp = hrt_absolute_time();
+	_gps_report.device_id = get_device_id();
+
+	_sensor_gps_pub.publish(_gps_report);
+
+	jamming_spoofing_check();
 }
 
-int TeseoGPS::read_serial_port(uint8_t* buf, size_t size, int timeout)
+void TeseoGPS::jamming_spoofing_check()
+{
+	if (_gps_report.spoofing_state != _spoofing_state) {
+
+		if (_gps_report.spoofing_state > sensor_gps_s::SPOOFING_STATE_NONE) {
+			PX4_WARN("GPS spoofing detected! (state: %d)", _gps_report.spoofing_state);
+		}
+
+		_spoofing_state = _gps_report.spoofing_state;
+	}
+
+	if (_gps_report.jamming_state != _jamming_state) {
+
+		if (_gps_report.jamming_state > sensor_gps_s::JAMMING_STATE_WARNING) {
+			PX4_WARN("GPS jamming detected! (state: %d) (indicator: %d)", _gps_report.jamming_state,
+				 (uint8_t)_gps_report.jamming_indicator);
+		}
+
+		_jamming_state = _gps_report.jamming_state;
+	}
+}
+
+int TeseoGPS::read_serial_port(uint8_t* buf, size_t size, int timeout_ms)
 {
 	const int max_timeout = 50;
 
@@ -257,15 +240,17 @@ int TeseoGPS::read_serial_port(uint8_t* buf, size_t size, int timeout)
 	fds[0].events = POLLIN;
 
 	// https://man7.org/linux/man-pages/man2/poll.2.html
-	int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), math::min(max_timeout, timeout));
+	int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), math::min(max_timeout, timeout_ms));
 
 	if (ret <= 0) {
 		// Timed out or error
+		perf_count(_read_error);
 		return ret;
 	}
 
 	// Check that there is data to read
 	if (!(fds[0].revents & POLLIN)) {
+		perf_count(_read_error);
 		return -1;
 	}
 
@@ -381,68 +366,13 @@ int TeseoGPS::setBaudrate(unsigned baud)
 	return 0;
 }
 
-
 int TeseoGPS::print_status()
 {
-	switch (_instance) {
-	case Instance::Main:
-		PX4_INFO("Main GPS");
-		break;
-
-	case Instance::Secondary:
-		PX4_INFO("");
-		PX4_INFO("Secondary GPS");
-		break;
-
-	default:
-		break;
-	}
-
-	PX4_INFO("protocol: NMEA");
-
-	PX4_INFO("status: %s, port: %s, baudrate: %d", _healthy ? "OK" : "NOT OK", _port, _baudrate);
-	PX4_INFO("rate reading: \t\t%6i B/s", _rate_reading);
+	perf_print_counter(_read_error);
 
 	print_message(ORB_ID(sensor_gps), _gps_report);
 
-	if (_instance == Instance::Main && _secondary_instance.load()) {
-		TeseoGPS* secondary_instance = _secondary_instance.load();
-		secondary_instance->print_status();
-	}
-
 	return 0;
-}
-
-void TeseoGPS::publish()
-{
-	if (_instance == Instance::Main || _is_gps_main_advertised.load()) {
-		_gps_report.device_id = get_device_id();
-
-		_sensor_gps_pub.publish(_gps_report);
-		// Heading/yaw data can be updated at a lower rate than the other navigation data.
-		// The uORB message definition requires this data to be set to a NAN if no new valid data is available.
-		_gps_report.heading = NAN;
-		_is_gps_main_advertised.store(true);
-
-		if (_gps_report.spoofing_state != _spoofing_state) {
-
-			if (_gps_report.spoofing_state > sensor_gps_s::SPOOFING_STATE_NONE) {
-				PX4_WARN("GPS spoofing detected! (state: %d)", _gps_report.spoofing_state);
-			}
-
-			_spoofing_state = _gps_report.spoofing_state;
-		}
-
-		if (_gps_report.jamming_state != _jamming_state) {
-
-			if (_gps_report.jamming_state > sensor_gps_s::JAMMING_STATE_WARNING) {
-				PX4_WARN("GPS jamming detected! (state: %d) (indicator: %d)", _gps_report.jamming_state,
-					 (uint8_t)_gps_report.jamming_indicator);
-			}
-
-			_jamming_state = _gps_report.jamming_state;
-		}
-	}
 }
 
 int TeseoGPS::custom_command(int argc, char *argv[])
@@ -451,8 +381,6 @@ int TeseoGPS::custom_command(int argc, char *argv[])
 		PX4_INFO("not running");
 		return PX4_ERROR;
 	}
-
-	// TeseoGPS* _instance = get_instance();
 
 	// TODO:
 
@@ -470,120 +398,57 @@ int TeseoGPS::print_usage(const char *reason)
 ### Description
 Teseo GPS driver module that handles the NMEA communication with the device and publishes the position via uORB.
 
-The module supports a secondary GPS device, specified via `-e` parameter. The position will be published
-on the second uORB topic instance, but it's currently not used by the rest of the system (however the
-data will be logged, so that it can be used for comparisons).
-
-### Implementation
-There is a thread for each device polling for data..
-
-### Examples
-
-Starting 2 GPS devices (the main GPS on /dev/ttyS3 and the secondary on /dev/ttyS4):
-$ gps start -d /dev/ttyS3 -e /dev/ttyS4
-
-Initiate warm restart of GPS device
-$ gps reset warm
 )DESCR_STR");
 
 	PRINT_MODULE_USAGE_NAME("teseo_gps", "driver");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_PARAM_STRING('d', "/dev/ttyS3", "<file:dev>", "GPS device", true);
 	PRINT_MODULE_USAGE_PARAM_INT('b', 0, 0, 3000000, "Baudrate (can also be p:<param_name>)", true);
-	PRINT_MODULE_USAGE_PARAM_STRING('e', nullptr, "<file:dev>", "Optional secondary GPS device", true);
-	PRINT_MODULE_USAGE_PARAM_INT('g', 0, 0, 3000000, "Baudrate (secondary GPS, can also be p:<param_name>)", true);
 
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
-	PRINT_MODULE_USAGE_COMMAND_DESCR("reset", "Reset GPS device");
-	PRINT_MODULE_USAGE_ARG("cold|warm|hot", "Specify reset type", false);
 
 	return 0;
 }
 
 int TeseoGPS::task_spawn(int argc, char *argv[])
 {
-	return task_spawn(argc, argv, Instance::Main);
-}
+	static constexpr int TASK_STACK_SIZE = PX4_STACK_ADJUSTED(2040);
 
-int TeseoGPS::task_spawn(int argc, char *argv[], Instance instance)
-{
-	px4_main_t entry_point;
-	if (instance == Instance::Main) {
-		entry_point = (px4_main_t)&run_trampoline;
-	} else {
-		entry_point = (px4_main_t)&run_trampoline_secondary;
-	}
+	_task_id = px4_task_spawn_cmd("teseo_gps",
+					SCHED_DEFAULT,
+					SCHED_PRIORITY_SLOW_DRIVER,
+					TASK_STACK_SIZE,
+					&run_trampoline,
+					(char *const *)argv);
 
-	int task_id = px4_task_spawn_cmd("teseo_gps", SCHED_DEFAULT,
-				   SCHED_PRIORITY_SLOW_DRIVER, TASK_STACK_SIZE,
-				   entry_point, (char *const *)argv);
-
-	if (task_id < 0) {
-		task_id = -1;
+	if (_task_id < 0) {
+		_task_id = -1;
 		return -errno;
 	}
 
-	if (instance == Instance::Main) {
-		_task_id = task_id;
-	}
-
-	return 0;
-}
-
-int TeseoGPS::run_trampoline_secondary(int argc, char *argv[])
-{
-	// the task name is the first argument
-	argc -= 1;
-	argv += 1;
-
-	TeseoGPS* gps = instantiate(argc, argv, Instance::Secondary);
-
-	if (gps) {
-		_secondary_instance.store(gps);
-		gps->run();
-		_secondary_instance.store(nullptr);
-		delete gps;
-	}
 	return 0;
 }
 
 TeseoGPS* TeseoGPS::instantiate(int argc, char *argv[])
 {
-	return instantiate(argc, argv, Instance::Main);
-}
-
-TeseoGPS* TeseoGPS::instantiate(int argc, char *argv[], Instance instance)
-{
-	const char *device_name = nullptr;
-	const char *device_name_secondary = nullptr;
-	int baudrate_main = 0;
-	int baudrate_secondary = 0;
+	const char* device_path = nullptr;
+	int baudrate = 0;
 
 	int myoptind = 1;
 	int ch;
-	const char *myoptarg = nullptr;
+	const char* myoptarg = nullptr;
 
-	while ((ch = px4_getopt(argc, argv, "b:g:d:e:", &myoptind, &myoptarg)) != EOF) {
+	while ((ch = px4_getopt(argc, argv, "b:d:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'b':
-			if (px4_get_parameter_value(myoptarg, baudrate_main) != 0) {
-				PX4_ERR("baudrate parsing failed");
-				return nullptr;
-			}
-			break;
-		case 'g':
-			if (px4_get_parameter_value(myoptarg, baudrate_secondary) != 0) {
+			if (px4_get_parameter_value(myoptarg, baudrate) != 0) {
 				PX4_ERR("baudrate parsing failed");
 				return nullptr;
 			}
 			break;
 
 		case 'd':
-			device_name = myoptarg;
-			break;
-
-		case 'e':
-			device_name_secondary = myoptarg;
+			device_path = myoptarg;
 			break;
 
 		default:
@@ -593,36 +458,12 @@ TeseoGPS* TeseoGPS::instantiate(int argc, char *argv[], Instance instance)
 	}
 
 	TeseoGPS* gps = nullptr;
-	if (instance == Instance::Main) {
-		if (device_name && (::access(device_name, R_OK|W_OK) == 0)) {
-			gps = new TeseoGPS(device_name, instance, baudrate_main);
 
-		} else {
-			PX4_ERR("invalid device (-d) %s", device_name ? device_name  : "");
-		}
+	if (device_path && (::access(device_path, R_OK|W_OK) == 0)) {
+		gps = new TeseoGPS(device_path, baudrate);
 
-		if (gps && device_name_secondary) {
-			task_spawn(argc, argv, Instance::Secondary);
-			// wait until running
-			int i = 0;
-
-			do {
-				/* wait up to 1s */
-				px4_usleep(2500);
-
-			} while (!_secondary_instance.load() && ++i < 400);
-
-			if (i == 400) {
-				PX4_ERR("Timed out while waiting for thread to start");
-			}
-		}
-	} else { // secondary instance
-		if (device_name_secondary && (access(device_name_secondary, R_OK|W_OK) == 0)) {
-			gps = new TeseoGPS(device_name_secondary, instance, baudrate_secondary);
-
-		} else {
-			PX4_ERR("invalid secondary device (-g) %s", device_name_secondary ? device_name_secondary : "");
-		}
+	} else {
+		PX4_ERR("invalid device (-d) %s", device_path ? device_path  : "");
 	}
 
 	return gps;

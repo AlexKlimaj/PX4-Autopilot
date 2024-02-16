@@ -31,47 +31,28 @@
  *
  ****************************************************************************/
 
-// TODO: audit includes
-#include <termios.h>
-#include <cstring>
-
-#include <drivers/drv_sensor.h>
-#include <lib/drivers/device/Device.hpp>
-#include <lib/parameters/param.h>
-#include <mathlib/mathlib.h>
-#include <matrix/math.hpp>
-#include <px4_platform_common/atomic.h>
 #include <px4_platform_common/cli.h>
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/module.h>
+#include <lib/drivers/device/Device.hpp>
+#include <mathlib/mathlib.h>
+#include <lib/perf/perf_counter.h>
 #include <uORB/Publication.hpp>
-#include <uORB/PublicationMulti.hpp>
-#include <uORB/Subscription.hpp>
-#include <uORB/SubscriptionMultiArray.hpp>
 #include <uORB/topics/sensor_gps.h>
-#include <uORB/topics/sensor_gnss_relative.h>
 
 #include "NMEAParser.hpp"
 
 class TeseoGPS : public ModuleBase<TeseoGPS>, public device::Device
 {
 public:
-	enum class Instance : uint8_t {
-		Main = 0,
-		Secondary,
-		Count
-	};
-
-	TeseoGPS(const char *path, Instance instance, unsigned baudrate);
+	TeseoGPS(const char *path, unsigned baudrate);
 	~TeseoGPS() override;
 
 	/** @see ModuleBase */
 	static int task_spawn(int argc, char *argv[]);
-	static int task_spawn(int argc, char *argv[], Instance instance);
 
 	/** @see ModuleBase */
 	static TeseoGPS *instantiate(int argc, char *argv[]);
-	static TeseoGPS *instantiate(int argc, char *argv[], Instance instance);
 
 	void run() override;
 
@@ -79,54 +60,27 @@ public:
 
 	static int print_usage(const char *reason = nullptr);
 
-	static int run_trampoline_secondary(int argc, char *argv[]);
-
 	int print_status() override;
 
 private:
-	void update_gps_report();
-	int						_serial_fd{-1};
-	unsigned				_baudrate{0};
-	char					_port[20] {};					///< device / serial port path
-
-	NMEAParser 			   _parser{};
-
-	bool					_healthy{false};				///< flag to signal if the GPS is ok
-
-
-	sensor_gps_s			_gps_report{};
-	uint8_t                 _spoofing_state{0};                             ///< spoofing state
-	uint8_t                 _jamming_state{0};                              ///< jamming state
-
-	uORB::PublicationMulti<sensor_gps_s>	_sensor_gps_pub{ORB_ID(sensor_gps)};
-
-	float				_rate{0.0f};					///< position update rate
-	unsigned			_num_bytes_read{0}; 				///< counter for number of read bytes from the UART (within update interval)
-	unsigned			_rate_reading{0}; 				///< reading rate in B/s
-
-	const Instance 			_instance;
-
-	static px4::atomic_bool _is_gps_main_advertised; ///< for the second gps we want to make sure that it gets instance 1
-	/// and thus we wait until the first one publishes at least one message.
-
-	static px4::atomic<TeseoGPS*> _secondary_instance;
-
-
-	void 				publish();
-
-	/**
-	 * This is an abstraction for the poll on serial used.
-	 *
-	 * @param buf: pointer to read buffer
-	 * @param buf_length: size of read buffer
-	 * @param timeout: timeout in ms
-	 * @return: 0 for nothing read, or poll timed out
-	 *	    < 0 for error
-	 *	    > 0 number of bytes read
-	 */
-	int read_serial_port(uint8_t* buf, size_t size, int timeout);
-
+	int read_serial_port(uint8_t* buf, size_t size, int timeout_ms);
 	int setBaudrate(unsigned baud);
 
-	static constexpr int SET_CLOCK_DRIFT_TIME_S{5};			///< RTC drift time when time synchronization is needed (in seconds)
+	void update_and_publish();
+	void jamming_spoofing_check();
+
+	int             _serial_fd{-1};
+	unsigned        _baudrate{0};
+	char            _port[20]{};
+	bool 			_clock_set{false};
+
+	NMEAParser      _parser{};
+
+	sensor_gps_s 	_gps_report{};
+	uint8_t         _spoofing_state{0};
+	uint8_t         _jamming_state{0};
+
+	perf_counter_t	_read_error;
+
+	uORB::Publication<sensor_gps_s>    _sensor_gps_pub{ORB_ID(sensor_gps)};
 };
