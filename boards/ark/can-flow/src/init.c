@@ -153,7 +153,7 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	/* initial LED state */
 	drv_led_start();
 	led_off(LED_RED);
-	led_on(LED_BLUE);
+	led_off(LED_BLUE);
 
 	/* Configure the HW based on the manifest */
 	//px4_platform_configure();
