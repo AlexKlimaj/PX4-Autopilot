@@ -524,7 +524,7 @@ bool PAW3902::Configure()
 		break;
 	}
 
-	EnableLed();
+	// EnableLed();
 
 	return true;
 }

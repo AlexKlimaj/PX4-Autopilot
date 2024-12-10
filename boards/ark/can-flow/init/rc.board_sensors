@@ -21,4 +21,4 @@ then
 	fi
 fi
 
-afbrs50 start
+# afbrs50 start
