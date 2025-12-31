@@ -2,6 +2,8 @@ menuconfig DRIVERS_UAVCAN_CANARD
 	bool "uavcan (libcanard)"
 	default n
 	depends on PLATFORM_NUTTX
+	select CAN
+	select CAN_EXTID
 	---help---
 		Enable DroneCAN/UAVCANv0 using DroneCAN libcanard.
 
@@ -10,3 +12,4 @@ menuconfig DRIVERS_UAVCAN_CANARD
 
 if DRIVERS_UAVCAN_CANARD
 endif
+

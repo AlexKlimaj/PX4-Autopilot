@@ -269,6 +269,7 @@ public:
 # else
 		(void)bitrate;
 		PX4_ERR("CONFIG_CAN not enabled");
+		errno = ENOTSUP;
 		return false;
 # endif
 #else

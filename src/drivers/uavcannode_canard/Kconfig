@@ -2,6 +2,8 @@ menuconfig DRIVERS_UAVCANNODE_CANARD
 	bool "uavcannode (libcanard)"
 	default n
 	depends on BOARD_ROMFSROOT != "px4fmu_common"
+	select CAN
+	select CAN_EXTID
 	---help---
 		Enable UAVCANv0 node firmware using DroneCAN libcanard.
 

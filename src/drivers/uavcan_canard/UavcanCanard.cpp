@@ -88,8 +88,7 @@ public:
 
 		return 0;
 #else
-		PX4_ERR("CONFIG_CAN not enabled");
-		return -1;
+		return -ENOTSUP;
 #endif
 	}
 
@@ -259,8 +258,24 @@ bool UavcanCanard::init_canard()
 #if defined(__PX4_NUTTX)
 	_can = new CanDevNuttX();
 
-	if (!_can || _can->init(_uavcan_bitrate, _can_iface) != 0) {
+	int can_init_ret = -1;
+
+	if (_can) {
+		can_init_ret = _can->init(_uavcan_bitrate, _can_iface);
+	}
+
+	if (can_init_ret != 0) {
+		if (can_init_ret == -ENOTSUP) {
+			PX4_ERR("CAN support not built into firmware (enable NuttX CAN: CONFIG_CAN)");
+			_should_exit.store(true);
+			delete _can;
+			_can = nullptr;
+			return false;
+		}
+
 		PX4_ERR("CAN init failed");
+		delete _can;
+		_can = nullptr;
 		return false;
 	}
 
