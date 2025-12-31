@@ -350,6 +350,12 @@ else()
 			arch_board_reset
 	)
 
+	# Some NuttX boards (e.g. cannode-style) call watchdog_init() from board init.
+	# The implementation is provided by the architecture watchdog library when available.
+	if(TARGET arch_watchdog_iwdg)
+		target_link_libraries(nuttx_arch INTERFACE arch_watchdog_iwdg)
+	endif()
+
 	target_link_libraries(nuttx_c INTERFACE nuttx_drivers)
 	target_link_libraries(nuttx_drivers INTERFACE nuttx_c)
 	target_link_libraries(nuttx_xx INTERFACE nuttx_c)

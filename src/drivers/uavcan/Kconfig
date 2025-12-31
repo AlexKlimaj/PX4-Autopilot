@@ -94,7 +94,7 @@ endif #DRIVERS_UAVCAN
 
 
 menuconfig BOARD_UAVCAN_INTERFACES
-depends on DRIVERS_UAVCAN || DRIVERS_UAVCANNODE
+depends on DRIVERS_UAVCAN || DRIVERS_UAVCANNODE || DRIVERS_UAVCAN_CANARD || DRIVERS_UAVCANNODE_CANARD
     int "UAVCANv0 interface count"
     default 2
     ---help---
@@ -107,6 +107,6 @@ depends on DRIVERS_UAVCAN
         list of UAVCAN peripheral firmware to build and embed
 
 menuconfig BOARD_UAVCAN_TIMER_OVERRIDE
-depends on DRIVERS_UAVCAN
+depends on DRIVERS_UAVCAN || DRIVERS_UAVCAN_CANARD
     int "UAVCAN timer override"
     default 0

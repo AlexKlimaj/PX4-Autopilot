@@ -1,0 +1,12 @@
+menuconfig DRIVERS_UAVCAN_CANARD
+	bool "uavcan (libcanard)"
+	default n
+	depends on PLATFORM_NUTTX
+	---help---
+		Enable DroneCAN/UAVCANv0 using DroneCAN libcanard.
+
+		This is intended to be feature-parity compatible with the existing
+		DRIVERS_UAVCAN module (libdronecan/libuavcan-based).
+
+if DRIVERS_UAVCAN_CANARD
+endif
