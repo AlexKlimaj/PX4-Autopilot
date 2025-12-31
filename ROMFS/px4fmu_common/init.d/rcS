@@ -634,9 +634,13 @@ else
 	if param greater -s UAVCAN_ENABLE 0
 	then
 		# Start core UAVCAN module.
-		if ! uavcan start
+		# Prefer the canard-based driver if present, otherwise fall back to the legacy driver.
+		if ! uavcan_canard start
 		then
-			tune_control play error
+			if ! uavcan start
+			then
+				tune_control play error
+			fi
 		fi
 	else
 		if param greater -s CYPHAL_ENABLE 0

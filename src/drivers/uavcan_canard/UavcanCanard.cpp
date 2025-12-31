@@ -220,13 +220,23 @@ bool UavcanCanard::init_canard()
 		return true;
 	}
 
-	param_get(_param_uavcan_enable, &_uavcan_enable);
-	param_get(_param_uavcan_bitrate, &_uavcan_bitrate);
-	param_get(_param_uavcan_node_id, &_uavcan_node_id);
+	// Parameters might not be present on some builds. Avoid param_get() on invalid handles.
+	if (_param_uavcan_enable != PARAM_INVALID) {
+		param_get(_param_uavcan_enable, &_uavcan_enable);
+	} else {
+		_uavcan_enable = 0;
+	}
 
-	if (_uavcan_enable <= 0) {
-		PX4_INFO("UAVCAN_ENABLE=%ld, not starting", (long)_uavcan_enable);
-		return false;
+	if (_param_uavcan_bitrate != PARAM_INVALID) {
+		param_get(_param_uavcan_bitrate, &_uavcan_bitrate);
+	} else {
+		_uavcan_bitrate = 1000000;
+	}
+
+	if (_param_uavcan_node_id != PARAM_INVALID) {
+		param_get(_param_uavcan_node_id, &_uavcan_node_id);
+	} else {
+		_uavcan_node_id = 1;
 	}
 
 	// Legacy parity: UAVCAN_ENABLE selects the CAN interface.
