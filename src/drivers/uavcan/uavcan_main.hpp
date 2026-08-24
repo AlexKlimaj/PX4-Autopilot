@@ -135,6 +135,8 @@ public:
 
 	MixingOutput &mixingOutput() { return _mixing_output; }
 
+	bool isActuatorTestRunning() const { return _mixing_output.isActuatorTestRunning(); }
+
 protected:
 	void Run() override;
 private:
