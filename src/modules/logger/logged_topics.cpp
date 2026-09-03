@@ -401,6 +401,9 @@ void LoggedTopics::add_high_rate_sensors_topics()
 	add_topic_multi("sensor_gps", 10, 4);
 	add_topic_multi("sensor_gnss_relative", 10, 1);
 	add_topic_multi("sensor_mag", 10, 4);
+	// Raw IMU at native rate so gyro/accel FFTs can be computed without FIFO logging.
+	add_topic_multi("sensor_accel", 0, 4);
+	add_topic_multi("sensor_gyro", 0, 4);
 	add_topic("estimator_aid_src_baro_hgt", 10);
 	add_topic("vehicle_air_data", 10);
 	add_topic("vehicle_magnetometer", 10);

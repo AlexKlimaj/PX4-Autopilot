@@ -83,7 +83,8 @@ parameters:
           sensor comparison (low rate raw IMU, Baro and magnetometer data) 7 : Topics
           for computer vision and collision prevention 8 : Raw FIFO high-rate IMU
           (Gyro) 9 : Raw FIFO high-rate IMU (Accel) 10: Logging of mavlink tunnel
-          message (useful for payload communication debugging)'
+          message (useful for payload communication debugging) 11: High rate raw
+          sensors (gyro, accel, mag, baro, GPS, distance, flow)'
       type: bitmask
       bit:
         0: Default set (general log analysis)
@@ -97,7 +98,7 @@ parameters:
         8: Raw FIFO high-rate IMU (Gyro)
         9: Raw FIFO high-rate IMU (Accel)
         10: Mavlink tunnel message logging
-        11: High rate sensors
+        11: High rate sensors (gyro, accel, mag, baro, GPS)
       default: 1
       min: 0
       max: 4095
